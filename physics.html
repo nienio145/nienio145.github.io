@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Infinite Bouncing Ball • Realistic Physics</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap');
+        
+        body {
+            margin: 0;
+            padding: 0;
+            background: #0d1117;
+            color: #c9d1d9;
+            font-family: 'Inter', system_ui, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+        
+        .container {
+            background: #161b22;
+            border-radius: 16px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
+            padding: 24px;
+            max-width: 860px;
+            width: 100%;
+        }
+        
+        h1 {
+            text-align: center;
+            margin: 0 0 20px 0;
+            font-size: 28px;
+            font-weight: 600;
+            background: linear-gradient(90deg, #58a6ff, #f778ba);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        
+        canvas {
+            display: block;
+            margin: 0 auto;
+            background: #0d1117;
+            border: 6px solid #30363d;
+            border-radius: 12px;
+            box-shadow: inset 0 0 30px rgba(0, 0, 0, 0.8);
+        }
+        
+        .controls {
+            margin-top: 24px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        
+        .slider-group {
+            background: #21262d;
+            padding: 16px;
+            border-radius: 10px;
+        }
+        
+        label {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 14px;
+            margin-bottom: 6px;
+            font-weight: 500;
+        }
+        
+        .value {
+            font-family: monospace;
+            font-size: 15px;
+            color: #58a6ff;
+            min-width: 48px;
+            text-align: right;
+        }
+        
+        input[type="range"] {
+            width: 100%;
+            accent-color: #58a6ff;
+        }
+        
+        .buttons {
+            grid-column: 1 / -1;
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            margin-top: 8px;
+        }
+        
+        button {
+            padding: 12px 28px;
+            font-size: 15px;
+            font-weight: 600;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        #reset {
+            background: #21262d;
+            color: #c9d1d9;
+        }
+        
+        #pause {
+            background: #238636;
+            color: white;
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+        }
+        
+        .info {
+            text-align: center;
+            font-size: 13px;
+            color: #8b949e;
+            margin-top: 12px;
+            line-height: 1.4;
+        }
+        
+        .status {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.6);
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-family: monospace;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>⚡ Infinite Bouncing Ball</h1>
+        <canvas id="canvas" width="800" height="500"></canvas>
+        
+        <div class="controls">
+            <div class="slider-group">
+                <label for="gravity">
+                    Gravity <span class="value" id="gravity-value">980</span>
+                </label>
+                <input type="range" id="gravity" min="0" max="2500" step="10" value="980">
+            </div>
+            
+            <div class="slider-group">
+                <label for="restitution">
+                    Restitution (bounce) <span class="value" id="restitution-value">1.00</span>
+                </label>
+                <input type="range" id="restitution" min="0.5" max="1" step="0.01" value="1.00">
+            </div>
+            
+            <div class="slider-group">
+                <label for="friction">
+                    Ground Friction <span class="value" id="friction-value">0.00</span>
+                </label>
+                <input type="range" id="friction" min="0" max="0.3" step="0.01" value="0.00">
+            </div>
+            
+            <div class="slider-group">
+                <label for="radius">
+                    Ball Radius <span class="value" id="radius-value">22</span>
+                </label>
+                <input type="range" id="radius" min="10" max="60" step="1" value="22">
+            </div>
+            
+            <div class="buttons">
+                <button id="reset">Reset Ball</button>
+                <button id="pause">Pause</button>
+            </div>
+        </div>
+        
+        <div class="info">
+            Realistic time-based physics • Gravity, elastic collisions &amp; friction<br>
+            <strong>Set restitution = 1.00 and friction = 0.00 for truly infinite bouncing</strong>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const WIDTH = canvas.width;
+        const HEIGHT = canvas.height;
+
+        let ball = {
+            x: WIDTH * 0.35,
+            y: HEIGHT * 0.25,
+            vx: 320,
+            vy: 120,
+            r: 22
+        };
+
+        let gravity = 980;
+        let restitution = 1.00;
+        let friction = 0.00;
+        let paused = false;
+        let lastTime = performance.now();
+
+        // Slider listeners
+        function setupSliders() {
+            const gSlider = document.getElementById('gravity');
+            const rSlider = document.getElementById('restitution');
+            const fSlider = document.getElementById('friction');
+            const radSlider = document.getElementById('radius');
+
+            gSlider.addEventListener('input', () => {
+                gravity = parseFloat(gSlider.value);
+                document.getElementById('gravity-value').textContent = gravity;
+            });
+
+            rSlider.addEventListener('input', () => {
+                restitution = parseFloat(rSlider.value);
+                document.getElementById('restitution-value').textContent = restitution.toFixed(2);
+            });
+
+            fSlider.addEventListener('input', () => {
+                friction = parseFloat(fSlider.value);
+                document.getElementById('friction-value').textContent = friction.toFixed(2);
+            });
+
+            radSlider.addEventListener('input', () => {
+                ball.r = parseFloat(radSlider.value);
+                document.getElementById('radius-value').textContent = ball.r;
+            });
+
+            // Initialize displayed values
+            document.getElementById('gravity-value').textContent = gravity;
+            document.getElementById('restitution-value').textContent = restitution.toFixed(2);
+            document.getElementById('friction-value').textContent = friction.toFixed(2);
+            document.getElementById('radius-value').textContent = ball.r;
+        }
+
+        // Reset ball with nice starting conditions
+        function resetBall() {
+            ball.x = WIDTH * (0.3 + Math.random() * 0.4);
+            ball.y = HEIGHT * 0.2;
+            ball.vx = (Math.random() > 0.5 ? 1 : -1) * (280 + Math.random() * 180);
+            ball.vy = -180;   // launch slightly upward
+        }
+
+        // Button listeners
+        document.getElementById('reset').addEventListener('click', () => {
+            resetBall();
+        });
+
+        const pauseBtn = document.getElementById('pause');
+        pauseBtn.addEventListener('click', () => {
+            paused = !paused;
+            pauseBtn.textContent = paused ? 'Resume' : 'Pause';
+        });
+
+        function animate(now) {
+            if (!now) now = performance.now();
+            
+            const dt = Math.min((now - lastTime) / 1000, 0.1); // prevent huge jumps
+            lastTime = now;
+
+            if (!paused) {
+                // === PHYSICS UPDATE ===
+                ball.vy += gravity * dt;
+                
+                ball.x += ball.vx * dt;
+                ball.y += ball.vy * dt;
+
+                // Wall collisions (perfect elastic)
+                // Left
+                if (ball.x - ball.r < 0) {
+                    ball.x = ball.r;
+                    ball.vx = -ball.vx * restitution;
+                }
+                // Right
+                if (ball.x + ball.r > WIDTH) {
+                    ball.x = WIDTH - ball.r;
+                    ball.vx = -ball.vx * restitution;
+                }
+                // Top
+                if (ball.y - ball.r < 0) {
+                    ball.y = ball.r;
+                    ball.vy = -ball.vy * restitution;
+                }
+                // Bottom + ground friction
+                if (ball.y + ball.r > HEIGHT) {
+                    ball.y = HEIGHT - ball.r;
+                    ball.vy = -ball.vy * restitution;
+                    ball.vx *= (1 - friction);
+                    
+                    // Tiny threshold to prevent infinite micro-bouncing when almost stopped
+                    if (Math.abs(ball.vy) < 3 && restitution < 1) {
+                        ball.vy = 0;
+                    }
+                }
+            }
+
+            // === RENDERING ===
+            // Subtle motion trail for smooth feel
+            ctx.fillStyle = 'rgba(13, 17, 23, 0.18)';
+            ctx.fillRect(0, 0, WIDTH, HEIGHT);
+
+            // Draw ball with nice 3D look
+            // Main ball
+            ctx.save();
+            ctx.shadowColor = '#ff5555';
+            ctx.shadowBlur = 25;
+            ctx.fillStyle = '#ff5555';
+            ctx.beginPath();
+            ctx.arc(ball.x, ball.y, ball.r, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+
+            // Gloss highlight
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.55)';
+            ctx.beginPath();
+            ctx.arc(ball.x - ball.r * 0.35, ball.y - ball.r * 0.35, ball.r * 0.38, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Dark rim
+            ctx.strokeStyle = '#c22';
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.arc(ball.x, ball.y, ball.r, 0, Math.PI * 2);
+            ctx.stroke();
+
+            requestAnimationFrame(animate);
+        }
+
+        // Start everything
+        window.onload = () => {
+            setupSliders();
+            resetBall();           // nice initial launch
+            requestAnimationFrame(animate);
+        };
+    </script>
+</body>
+</html>
