@@ -1,0 +1,1148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Soft Body Physics</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;600&family=Syne:wght@400;700;800&display=swap');
+
+  :root {
+    --bg: #0a0a0f;
+    --surface: #13131a;
+    --surface2: #1c1c28;
+    --border: #2a2a3a;
+    --accent: #7c6aff;
+    --accent2: #ff6a9b;
+    --accent3: #6affb0;
+    --text: #e8e8f0;
+    --text-dim: #6a6a8a;
+    --glow: rgba(124, 106, 255, 0.3);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    overflow: hidden;
+    height: 100vh;
+    width: 100vw;
+  }
+
+  canvas {
+    display: block;
+    cursor: crosshair;
+  }
+
+  /* SETTINGS PANEL */
+  #panel {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    width: 280px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 20px;
+    z-index: 100;
+    box-shadow: 0 0 40px rgba(0,0,0,0.6), 0 0 80px rgba(124,106,255,0.05);
+    transition: transform 0.3s ease;
+  }
+
+  #panel.collapsed {
+    transform: translateX(calc(100% + 24px));
+  }
+
+  #panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+  }
+
+  #panel-title {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 14px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+
+  .toggle-btn {
+    width: 28px; height: 28px;
+    border: 1px solid var(--border);
+    background: var(--surface2);
+    border-radius: 6px;
+    cursor: pointer;
+    color: var(--text-dim);
+    font-size: 12px;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.2s;
+  }
+  .toggle-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  .section-label {
+    font-size: 9px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 12px;
+    margin-top: 16px;
+  }
+  .section-label:first-of-type { margin-top: 0; }
+
+  .control-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+    gap: 12px;
+  }
+
+  .control-label {
+    font-size: 11px;
+    color: var(--text-dim);
+    white-space: nowrap;
+    flex-shrink: 0;
+    width: 90px;
+  }
+
+  .slider-wrap {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  input[type=range] {
+    -webkit-appearance: none;
+    flex: 1;
+    height: 3px;
+    background: var(--border);
+    border-radius: 2px;
+    outline: none;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    background: var(--accent);
+    cursor: pointer;
+    box-shadow: 0 0 8px var(--glow);
+    transition: transform 0.1s;
+  }
+  input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.3); }
+
+  .value-badge {
+    font-size: 10px;
+    color: var(--accent);
+    min-width: 32px;
+    text-align: right;
+  }
+
+  .btn-row {
+    display: flex;
+    gap: 8px;
+    margin-top: 16px;
+    flex-wrap: wrap;
+  }
+
+  .btn {
+    flex: 1;
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    background: var(--surface2);
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    white-space: nowrap;
+  }
+  .btn:hover { border-color: var(--accent); color: var(--accent); background: rgba(124,106,255,0.08); }
+  .btn.active { border-color: var(--accent); background: rgba(124,106,255,0.15); color: var(--accent); }
+  .btn.danger:hover { border-color: var(--accent2); color: var(--accent2); background: rgba(255,106,155,0.08); }
+
+  /* MODE BADGE */
+  #mode-badge {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 30px;
+    padding: 8px 20px;
+    font-size: 11px;
+    color: var(--text-dim);
+    letter-spacing: 0.1em;
+    pointer-events: none;
+    transition: opacity 0.3s;
+  }
+  #mode-badge span { color: var(--accent); }
+
+  /* PANEL TOGGLE BUTTON (when collapsed) */
+  #panel-show-btn {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    padding: 10px 16px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    cursor: pointer;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--accent);
+    z-index: 99;
+    display: none;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    box-shadow: 0 0 20px rgba(124,106,255,0.1);
+  }
+  #panel-show-btn:hover { background: var(--surface2); }
+
+  .divider {
+    height: 1px;
+    background: var(--border);
+    margin: 14px 0;
+  }
+
+  .sim-type-row {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 4px;
+  }
+  .sim-btn {
+    flex: 1;
+    padding: 7px 4px;
+    border: 1px solid var(--border);
+    background: var(--surface2);
+    color: var(--text-dim);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: center;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+  .sim-btn.active {
+    border-color: var(--accent3);
+    color: var(--accent3);
+    background: rgba(106, 255, 176, 0.08);
+  }
+  .sim-btn:hover:not(.active) { border-color: var(--border); color: var(--text); }
+</style>
+</head>
+<body>
+
+<canvas id="c"></canvas>
+
+<div id="panel">
+  <div id="panel-header">
+    <div id="panel-title">⬡ Physics Lab</div>
+    <button class="toggle-btn" id="collapse-btn" title="Collapse">✕</button>
+  </div>
+
+  <div class="section-label">Simulation Type</div>
+  <div class="sim-type-row">
+    <button class="sim-btn active" data-sim="cloth">Cloth</button>
+    <button class="sim-btn" data-sim="softball">Ball</button>
+    <button class="sim-btn" data-sim="jelly">Jelly</button>
+    <button class="sim-btn" data-sim="rope">Rope</button>
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="section-label">Physics</div>
+
+  <div class="control-row">
+    <span class="control-label">Softness</span>
+    <div class="slider-wrap">
+      <input type="range" id="softness" min="0.01" max="1" step="0.01" value="0.3">
+      <span class="value-badge" id="softness-val">0.30</span>
+    </div>
+  </div>
+
+  <div class="control-row">
+    <span class="control-label">Gravity</span>
+    <div class="slider-wrap">
+      <input type="range" id="gravity" min="0" max="2" step="0.05" value="0.5">
+      <span class="value-badge" id="gravity-val">0.50</span>
+    </div>
+  </div>
+
+  <div class="control-row">
+    <span class="control-label">Damping</span>
+    <div class="slider-wrap">
+      <input type="range" id="damping" min="0.8" max="0.999" step="0.001" value="0.98">
+      <span class="value-badge" id="damping-val">0.98</span>
+    </div>
+  </div>
+
+  <div class="control-row">
+    <span class="control-label">Wind</span>
+    <div class="slider-wrap">
+      <input type="range" id="wind" min="0" max="3" step="0.05" value="0">
+      <span class="value-badge" id="wind-val">0.00</span>
+    </div>
+  </div>
+
+  <div class="control-row">
+    <span class="control-label">Iterations</span>
+    <div class="slider-wrap">
+      <input type="range" id="iters" min="1" max="30" step="1" value="15">
+      <span class="value-badge" id="iters-val">15</span>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+  <div class="section-label">Visual</div>
+
+  <div class="control-row">
+    <span class="control-label">Show Nodes</span>
+    <div class="slider-wrap">
+      <input type="range" id="show-nodes" min="0" max="1" step="1" value="0">
+      <span class="value-badge" id="show-nodes-val">Off</span>
+    </div>
+  </div>
+
+  <div class="control-row">
+    <span class="control-label">Wireframe</span>
+    <div class="slider-wrap">
+      <input type="range" id="wireframe" min="0" max="1" step="1" value="0">
+      <span class="value-badge" id="wireframe-val">Off</span>
+    </div>
+  </div>
+
+  <div class="btn-row">
+    <button class="btn" id="pin-toggle">Pin Edges</button>
+    <button class="btn danger" id="reset-btn">Reset</button>
+    <button class="btn" id="shake-btn">Shake!</button>
+  </div>
+</div>
+
+<button id="panel-show-btn">⚙ Settings</button>
+
+<div id="mode-badge">Drag nodes · <span id="mode-text">Cloth</span></div>
+
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+
+let W, H;
+function resize() {
+  W = canvas.width = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+}
+resize();
+window.addEventListener('resize', () => { resize(); initSim(); });
+
+// ─── SETTINGS ─────────────────────────────────────────────────────────────────
+const cfg = {
+  softness: 0.3,
+  gravity: 0.5,
+  damping: 0.98,
+  wind: 0,
+  iters: 15,
+  showNodes: false,
+  wireframe: false,
+  pinEdges: true,
+  simType: 'cloth',
+};
+
+// ─── PHYSICS ENGINE ────────────────────────────────────────────────────────────
+class Point {
+  constructor(x, y, pinned = false) {
+    this.x = x; this.y = y;
+    this.px = x; this.py = y;
+    this.vx = 0; this.vy = 0;
+    this.pinned = pinned;
+    this.mass = 1;
+  }
+  update() {
+    if (this.pinned) return;
+    const vx = (this.x - this.px) * cfg.damping;
+    const vy = (this.y - this.py) * cfg.damping;
+    this.px = this.x; this.py = this.y;
+    const windForce = Math.sin(Date.now() * 0.001 + this.y * 0.01) * cfg.wind * 0.3;
+    this.x += vx + windForce;
+    this.y += vy + cfg.gravity * 0.4;
+    // Bounce off walls
+    const r = 3;
+    if (this.x < r) { this.x = r; this.px = this.x + vx * 0.3; }
+    if (this.x > W - r) { this.x = W - r; this.px = this.x + vx * 0.3; }
+    if (this.y > H - r) { this.y = H - r; this.py = this.y - Math.abs(vy) * 0.4; }
+    if (this.y < r) { this.y = r; }
+  }
+}
+
+class Constraint {
+  constructor(a, b, restLen, stiffness = 1) {
+    this.a = a; this.b = b;
+    this.restLen = restLen ?? Math.hypot(b.x - a.x, b.y - a.y);
+    this.stiffness = stiffness;
+    this.broken = false;
+  }
+  resolve() {
+    if (this.broken) return;
+    const dx = this.b.x - this.a.x;
+    const dy = this.b.y - this.a.y;
+    const dist = Math.hypot(dx, dy) || 0.0001;
+    const diff = (dist - this.restLen) / dist * this.stiffness * cfg.softness;
+    const ox = dx * diff * 0.5;
+    const oy = dy * diff * 0.5;
+    if (!this.a.pinned) { this.a.x += ox; this.a.y += oy; }
+    if (!this.b.pinned) { this.b.x -= ox; this.b.y -= oy; }
+  }
+}
+
+let points = [], constraints = [];
+let simType = 'cloth';
+
+// ─── SIMULATIONS ───────────────────────────────────────────────────────────────
+
+function makeCloth() {
+  const cols = 22, rows = 16;
+  const spacing = Math.min(W / (cols + 2), H / (rows + 3));
+  const ox = (W - cols * spacing) / 2;
+  const oy = H * 0.08;
+  points = []; constraints = [];
+
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const pinned = r === 0 && cfg.pinEdges && (c === 0 || c === cols - 1 || c % 5 === 0);
+      points.push(new Point(ox + c * spacing, oy + r * spacing, pinned));
+    }
+  }
+  const idx = (r, c) => r * cols + c;
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      if (c < cols - 1) constraints.push(new Constraint(points[idx(r,c)], points[idx(r,c+1)], spacing));
+      if (r < rows - 1) constraints.push(new Constraint(points[idx(r,c)], points[idx(r+1,c)], spacing));
+      // Shear
+      if (c < cols - 1 && r < rows - 1) {
+        constraints.push(new Constraint(points[idx(r,c)], points[idx(r+1,c+1)], spacing * 1.414, 0.8));
+        constraints.push(new Constraint(points[idx(r,c+1)], points[idx(r+1,c)], spacing * 1.414, 0.8));
+      }
+      // Bending resistance — skip-1 constraints prevent sharp folds
+      if (c < cols - 2) constraints.push(new Constraint(points[idx(r,c)], points[idx(r,c+2)], spacing * 2, 0.4));
+      if (r < rows - 2) constraints.push(new Constraint(points[idx(r,c)], points[idx(r+2,c)], spacing * 2, 0.4));
+    }
+  }
+  // Store grid info
+  points._cols = cols; points._rows = rows; points._spacing = spacing;
+}
+
+function makeSoftBall() {
+  const cx = W / 2, cy = H / 3;
+  const radius = Math.min(W, H) * 0.13;
+  const N = 24;
+  points = []; constraints = [];
+
+  // Ring of outer points
+  for (let i = 0; i < N; i++) {
+    const a = (i / N) * Math.PI * 2;
+    points.push(new Point(cx + Math.cos(a) * radius, cy + Math.sin(a) * radius));
+  }
+  // Center point
+  const center = new Point(cx, cy);
+  points.push(center);
+
+  const segLen = Math.hypot(
+    points[1].x - points[0].x, points[1].y - points[0].y
+  );
+
+  // Ring constraints
+  for (let i = 0; i < N; i++) {
+    constraints.push(new Constraint(points[i], points[(i + 1) % N], segLen));
+    // Skip connections
+    constraints.push(new Constraint(points[i], points[(i + 2) % N], segLen * 2, 0.6));
+    constraints.push(new Constraint(points[i], points[(i + 3) % N], segLen * 3, 0.4));
+  }
+  // Spokes to center
+  for (let i = 0; i < N; i++) {
+    constraints.push(new Constraint(points[i], center, radius, 0.7));
+  }
+  points._type = 'ball'; points._N = N;
+}
+
+function makeJelly() {
+  const cx = W / 2, cy = H * 0.35;
+  const cols = 12, rows = 12;
+  const size = Math.min(W, H) * 0.40;
+  const spacing = size / (cols - 1);
+  const ox = cx - size / 2, oy = cy - size / 2;
+  points = []; constraints = [];
+
+  const idx = (r, c) => r * cols + c;
+
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const p = new Point(ox + c * spacing, oy + r * spacing);
+      p.restX = p.x;
+      p.restY = p.y;
+      points.push(p);
+    }
+  }
+
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      if (c < cols - 1) constraints.push(new Constraint(points[idx(r,c)], points[idx(r,c+1)], spacing, 1.0));
+      if (r < rows - 1) constraints.push(new Constraint(points[idx(r,c)], points[idx(r+1,c)], spacing, 1.0));
+      if (c < cols - 1 && r < rows - 1) {
+        constraints.push(new Constraint(points[idx(r,c)],   points[idx(r+1,c+1)], spacing * 1.414, 0.9));
+        constraints.push(new Constraint(points[idx(r,c+1)], points[idx(r+1,c)],   spacing * 1.414, 0.9));
+      }
+      if (c < cols - 2) constraints.push(new Constraint(points[idx(r,c)], points[idx(r,c+2)], spacing * 2, 0.8));
+      if (r < rows - 2) constraints.push(new Constraint(points[idx(r,c)], points[idx(r+2,c)], spacing * 2, 0.8));
+      if (c < cols - 3) constraints.push(new Constraint(points[idx(r,c)], points[idx(r,c+3)], spacing * 3, 0.5));
+      if (r < rows - 3) constraints.push(new Constraint(points[idx(r,c)], points[idx(r+3,c)], spacing * 3, 0.5));
+    }
+  }
+
+  points._cols = cols; points._rows = rows; points._spacing = spacing; points._type = 'jelly';
+}
+
+function applyJellyShapeMatching() {
+  if (cfg.simType !== 'jelly') return;
+  const n = points.length;
+  if (n === 0) return;
+  let cmx = 0, cmy = 0;
+  for (const p of points) { cmx += p.x; cmy += p.y; }
+  cmx /= n; cmy /= n;
+  let rcmx = 0, rcmy = 0;
+  for (const p of points) { rcmx += p.restX; rcmy += p.restY; }
+  rcmx /= n; rcmy /= n;
+  const tx = cmx - rcmx, ty = cmy - rcmy;
+  const alpha = 0.03 + (1 - cfg.softness) * 0.15;
+  for (const p of points) {
+    if (p.pinned) continue;
+    const goalX = p.restX + tx;
+    const goalY = p.restY + ty;
+    p.x += (goalX - p.x) * alpha;
+    p.y += (goalY - p.y) * alpha;
+  }
+}
+
+function makeRope() {
+  const N = 40;
+  const x1 = W * 0.25, x2 = W * 0.75, y = H * 0.15;
+  const segLen = (x2 - x1) / (N - 1);
+  points = []; constraints = [];
+  for (let i = 0; i < N; i++) {
+    const pinned = cfg.pinEdges && (i === 0 || i === N - 1);
+    points.push(new Point(x1 + i * segLen, y, pinned));
+  }
+  for (let i = 0; i < N - 1; i++) {
+    constraints.push(new Constraint(points[i], points[i + 1], segLen));
+  }
+  points._type = 'rope'; points._N = N;
+}
+
+function initSim() {
+  const t = cfg.simType;
+  if (t === 'cloth') makeCloth();
+  else if (t === 'softbal') makeSoftBall();
+  else if (t === 'softbal' || t === 'softbal') makeSoftBall();
+  else if (t === 'softall') makeSoftBall();
+  if (t === 'softall') {}
+  const map = { cloth: makeCloth, softball: makeSoftBall, jelly: makeJelly, rope: makeRope };
+  (map[t] || makeCloth)();
+  document.getElementById('mode-text').textContent = 
+    t.charAt(0).toUpperCase() + t.slice(1);
+}
+
+initSim();
+
+// ─── DRAG ──────────────────────────────────────────────────────────────────────
+let dragPoint = null, dragOffX = 0, dragOffY = 0;
+let mouseX = 0, mouseY = 0;
+
+function nearestPoint(mx, my, threshold = 30) {
+  let best = null, bestD = threshold * threshold;
+  for (const p of points) {
+    const d = (p.x - mx) ** 2 + (p.y - my) ** 2;
+    if (d < bestD) { bestD = d; best = p; }
+  }
+  return best;
+}
+
+canvas.addEventListener('mousedown', e => {
+  const p = nearestPoint(e.clientX, e.clientY, 40);
+  if (p) { dragPoint = p; dragPoint.pinned_orig = dragPoint.pinned; dragPoint.pinned = true; }
+});
+canvas.addEventListener('mousemove', e => {
+  mouseX = e.clientX; mouseY = e.clientY;
+  if (dragPoint) {
+    dragPoint.x = e.clientX; dragPoint.y = e.clientY;
+    dragPoint.px = e.clientX; dragPoint.py = e.clientY;
+  }
+});
+canvas.addEventListener('mouseup', () => {
+  if (dragPoint) { dragPoint.pinned = dragPoint.pinned_orig; dragPoint = null; }
+});
+
+// Touch
+canvas.addEventListener('touchstart', e => {
+  e.preventDefault();
+  const t = e.touches[0];
+  const p = nearestPoint(t.clientX, t.clientY, 50);
+  if (p) { dragPoint = p; dragPoint.pinned_orig = dragPoint.pinned; dragPoint.pinned = true; }
+}, { passive: false });
+canvas.addEventListener('touchmove', e => {
+  e.preventDefault();
+  const t = e.touches[0];
+  if (dragPoint) {
+    dragPoint.x = t.clientX; dragPoint.y = t.clientY;
+    dragPoint.px = t.clientX; dragPoint.py = t.clientY;
+  }
+}, { passive: false });
+canvas.addEventListener('touchend', () => {
+  if (dragPoint) { dragPoint.pinned = dragPoint.pinned_orig; dragPoint = null; }
+});
+
+// ─── SELF-COLLISION ────────────────────────────────────────────────────────────
+
+// Minimum separation distance between any two non-adjacent nodes
+// Computed dynamically in resolvePointRepulsion based on sim type
+const BASE_MIN_DIST = 6;
+
+// Point-point proximity repulsion — O(n²) but fast enough for our node counts
+function resolvePointRepulsion() {
+  const MIN_DIST = points._spacing ? points._spacing * 0.45 : BASE_MIN_DIST;
+  const minSq = MIN_DIST * MIN_DIST;
+  for (let i = 0; i < points.length; i++) {
+    const a = points[i];
+    for (let j = i + 1; j < points.length; j++) {
+      const b = points[j];
+      const dx = b.x - a.x;
+      const dy = b.y - a.y;
+      const distSq = dx * dx + dy * dy;
+      if (distSq < minSq && distSq > 0.0001) {
+        const dist = Math.sqrt(distSq);
+        const push = (MIN_DIST - dist) / dist * 0.5;
+        const ox = dx * push;
+        const oy = dy * push;
+        if (!a.pinned) { a.x -= ox; a.y -= oy; }
+        if (!b.pinned) { b.x += ox; b.y += oy; }
+      }
+    }
+  }
+}
+
+// Point-vs-edge collision for grid-based sims (cloth, jelly)
+// Tests every free point against every edge of the mesh.
+// Uses signed-area / barycentric approach to detect which side of an edge
+// a point is on and pushes it back if it has crossed to the wrong side.
+function resolvePointEdgeCollision(cols, rows) {
+  const idx = (r, c) => r * cols + c;
+  const THICKNESS = 4; // pixels — how close triggers a push
+
+  for (let pi = 0; pi < points.length; pi++) {
+    const p = points[pi];
+    if (p.pinned) continue;
+
+    // Horizontal edges
+    for (let r = 0; r < rows - 1; r++) {
+      for (let c = 0; c < cols - 1; c++) {
+        const a = points[idx(r, c)];
+        const b = points[idx(r, c + 1)];
+        // Skip edges that share this point
+        if (a === p || b === p) continue;
+        pushPointFromEdge(p, a, b, THICKNESS);
+      }
+    }
+    // Vertical edges
+    for (let r = 0; r < rows - 1; r++) {
+      for (let c = 0; c < cols; c++) {
+        const a = points[idx(r, c)];
+        const b = points[idx(r + 1, c)];
+        if (a === p || b === p) continue;
+        pushPointFromEdge(p, a, b, THICKNESS);
+      }
+    }
+  }
+}
+
+// Pushes point p away from the line segment (a→b) if it's within THICKNESS
+function pushPointFromEdge(p, a, b, thickness) {
+  const edx = b.x - a.x, edy = b.y - a.y;
+  const lenSq = edx * edx + edy * edy;
+  if (lenSq < 0.001) return;
+
+  // t = projection of p onto segment
+  const t = Math.max(0, Math.min(1, ((p.x - a.x) * edx + (p.y - a.y) * edy) / lenSq));
+  const closestX = a.x + t * edx;
+  const closestY = a.y + t * edy;
+
+  const dx = p.x - closestX;
+  const dy = p.y - closestY;
+  const dist = Math.sqrt(dx * dx + dy * dy);
+
+  if (dist < thickness && dist > 0.001) {
+    const correction = (thickness - dist) / dist * 0.5;
+    p.x += dx * correction;
+    p.y += dy * correction;
+    // Dampen velocity component into the edge
+    const nx = dx / dist, ny = dy / dist;
+    const vel = (p.x - p.px) * nx + (p.y - p.py) * ny;
+    if (vel < 0) {
+      p.px += nx * vel * 0.8;
+      p.py += ny * vel * 0.8;
+    }
+  }
+}
+
+// Rope-specific: prevent segments from crossing each other.
+// For each pair of non-adjacent segments, check if they've crossed and
+// push both pairs of endpoints apart.
+function resolveRopeSelfCollision(N) {
+  const ROPE_R = 5; // rope thickness radius
+
+  for (let i = 0; i < N - 1; i++) {
+    const a1 = points[i], a2 = points[i + 1];
+    for (let j = i + 2; j < N - 1; j++) {
+      const b1 = points[j], b2 = points[j + 1];
+      // Find closest point between the two segments
+      resolveSegmentSegment(a1, a2, b1, b2, ROPE_R);
+    }
+  }
+}
+
+function resolveSegmentSegment(a1, a2, b1, b2, minDist) {
+  // Closest points on both segments
+  const d1x = a2.x - a1.x, d1y = a2.y - a1.y;
+  const d2x = b2.x - b1.x, d2y = b2.y - b1.y;
+  const rx = a1.x - b1.x, ry = a1.y - b1.y;
+
+  const a = d1x*d1x + d1y*d1y;
+  const e = d2x*d2x + d2y*d2y;
+  const f = d2x*rx + d2y*ry;
+
+  let s, t2;
+  if (a <= 0.001 && e <= 0.001) { s = 0; t2 = 0; }
+  else if (a <= 0.001) { s = 0; t2 = Math.max(0, Math.min(1, f / e)); }
+  else {
+    const c = d1x*rx + d1y*ry;
+    if (e <= 0.001) { t2 = 0; s = Math.max(0, Math.min(1, -c / a)); }
+    else {
+      const b2v = d1x*d2x + d1y*d2y;
+      const denom = a*e - b2v*b2v;
+      s = denom !== 0 ? Math.max(0, Math.min(1, (b2v*f - c*e) / denom)) : 0;
+      t2 = Math.max(0, Math.min(1, (b2v*s + f) / e));
+      s = Math.max(0, Math.min(1, (b2v*t2 - c) / a));
+    }
+  }
+
+  const cpAx = a1.x + s * d1x, cpAy = a1.y + s * d1y;
+  const cpBx = b1.x + t2 * d2x, cpBy = b1.y + t2 * d2y;
+
+  const dx = cpAx - cpBx, dy = cpAy - cpBy;
+  const distSq = dx*dx + dy*dy;
+  const minSq = minDist * minDist;
+
+  if (distSq < minSq && distSq > 0.0001) {
+    const dist = Math.sqrt(distSq);
+    const correction = (minDist - dist) / dist * 0.5;
+    const ox = dx * correction, oy = dy * correction;
+
+    // Distribute push to the two closest endpoints
+    const wA = 1 - s, wB = s;
+    const wC = 1 - t2, wD = t2;
+    if (!a1.pinned) { a1.x += ox * wA * 0.5; a1.y += oy * wA * 0.5; }
+    if (!a2.pinned) { a2.x += ox * wB * 0.5; a2.y += oy * wB * 0.5; }
+    if (!b1.pinned) { b1.x -= ox * wC * 0.5; b1.y -= oy * wC * 0.5; }
+    if (!b2.pinned) { b2.x -= ox * wD * 0.5; b2.y -= oy * wD * 0.5; }
+  }
+}
+
+// Ball self-collision: keep all outer ring points separated from interior
+function resolveBallSelfCollision(N) {
+  // Ring points repel each other with a slightly larger radius
+  const ballMinDist = BASE_MIN_DIST * 1.5;
+  const minSq = ballMinDist * ballMinDist;
+  for (let i = 0; i < N; i++) {
+    for (let j = i + 2; j < N; j++) { // skip adjacent (they have constraints)
+      if (i === 0 && j === N - 1) continue; // also adjacent (wrap)
+      const a = points[i], b = points[j];
+      const dx = b.x - a.x, dy = b.y - a.y;
+      const distSq = dx*dx + dy*dy;
+      if (distSq < minSq && distSq > 0.0001) {
+        const dist = Math.sqrt(distSq);
+        const push = (ballMinDist - dist) / dist * 0.55;
+        if (!a.pinned) { a.x -= dx * push * 0.5; a.y -= dy * push * 0.5; }
+        if (!b.pinned) { b.x += dx * push * 0.5; b.y += dy * push * 0.5; }
+      }
+    }
+  }
+}
+
+// ─── UPDATE ────────────────────────────────────────────────────────────────────
+function update() {
+  for (const p of points) p.update();
+
+  if (cfg.simType === 'jelly') applyJellyShapeMatching();
+
+  for (let i = 0; i < cfg.iters; i++) {
+    for (const c of constraints) c.resolve();
+
+    if (i % 2 === 0) {
+      const type = cfg.simType;
+      if (type === 'cloth') {
+        resolvePointEdgeCollision(points._cols, points._rows);
+      } else if (type === 'jelly') {
+        resolvePointRepulsion();
+      } else if (type === 'rope') {
+        resolveRopeSelfCollision(points._N || points.length);
+      } else if (type === 'softball') {
+        resolveBallSelfCollision(points._N || 24);
+      }
+    }
+  }
+
+  if (cfg.simType !== 'jelly') resolvePointRepulsion();
+}
+
+// ─── DRAW ──────────────────────────────────────────────────────────────────────
+let t = 0;
+
+function getColor(x, y, i) {
+  const hue = (x / W * 120 + y / H * 80 + t * 0.2) % 360;
+  return `hsl(${hue}, 80%, 60%)`;
+}
+
+function drawCloth() {
+  const cols = points._cols, rows = points._rows, spacing = points._spacing;
+  const idx = (r, c) => r * cols + c;
+
+  if (!cfg.wireframe) {
+    // Draw filled quads
+    for (let r = 0; r < rows - 1; r++) {
+      for (let c = 0; c < cols - 1; c++) {
+        const p0 = points[idx(r, c)];
+        const p1 = points[idx(r, c + 1)];
+        const p2 = points[idx(r + 1, c + 1)];
+        const p3 = points[idx(r + 1, c)];
+        const cx2 = (p0.x + p1.x + p2.x + p3.x) / 4;
+        const cy2 = (p0.y + p1.y + p2.y + p3.y) / 4;
+        const hue = (cx2 / W * 120 + cy2 / H * 80 + t * 0.15) % 360;
+        ctx.fillStyle = `hsla(${hue}, 75%, 55%, 0.85)`;
+        ctx.beginPath();
+        ctx.moveTo(p0.x, p0.y);
+        ctx.lineTo(p1.x, p1.y);
+        ctx.lineTo(p2.x, p2.y);
+        ctx.lineTo(p3.x, p3.y);
+        ctx.closePath();
+        ctx.fill();
+      }
+    }
+  }
+
+  // Structural constraints only for wireframe
+  ctx.lineWidth = cfg.wireframe ? 1 : 0.5;
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      if (c < cols - 1) {
+        const a = points[idx(r, c)], b = points[idx(r, c + 1)];
+        const hue = (a.x / W * 120 + a.y / H * 60 + t * 0.1) % 360;
+        ctx.strokeStyle = cfg.wireframe ? `hsla(${hue}, 80%, 65%, 0.9)` : `rgba(255,255,255,0.15)`;
+        ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+      }
+      if (r < rows - 1) {
+        const a = points[idx(r, c)], b = points[idx(r + 1, c)];
+        const hue = (a.x / W * 60 + a.y / H * 120 + t * 0.1) % 360;
+        ctx.strokeStyle = cfg.wireframe ? `hsla(${hue}, 80%, 65%, 0.9)` : `rgba(255,255,255,0.15)`;
+        ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+      }
+    }
+  }
+}
+
+function drawBall() {
+  const N = points._N;
+  if (!cfg.wireframe) {
+    // Filled polygon
+    ctx.beginPath();
+    ctx.moveTo(points[0].x, points[0].y);
+    for (let i = 1; i < N; i++) ctx.lineTo(points[i].x, points[i].y);
+    ctx.closePath();
+    const cx2 = points[N].x, cy2 = points[N].y;
+    const grad = ctx.createRadialGradient(cx2, cy2, 0, cx2, cy2, 120);
+    const hue = (cx2 / W * 200 + t * 0.3) % 360;
+    grad.addColorStop(0, `hsla(${hue}, 80%, 70%, 0.9)`);
+    grad.addColorStop(1, `hsla(${(hue + 40) % 360}, 70%, 45%, 0.8)`);
+    ctx.fillStyle = grad;
+    ctx.fill();
+    ctx.strokeStyle = `rgba(255,255,255,0.3)`;
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+  } else {
+    // Spokes + ring wireframe
+    ctx.strokeStyle = `hsla(${(t * 0.5) % 360}, 80%, 65%, 0.9)`;
+    ctx.lineWidth = 1;
+    for (const c of constraints) {
+      if (c.broken) continue;
+      ctx.beginPath(); ctx.moveTo(c.a.x, c.a.y); ctx.lineTo(c.b.x, c.b.y); ctx.stroke();
+    }
+  }
+}
+
+function drawJelly() {
+  const cols = points._cols, rows = points._rows;
+  const idx = (r, c) => r * cols + c;
+
+  if (!cfg.wireframe) {
+    // Draw as two triangles per cell for correct deformation rendering
+    for (let r = 0; r < rows - 1; r++) {
+      for (let c = 0; c < cols - 1; c++) {
+        const p0 = points[idx(r, c)];
+        const p1 = points[idx(r, c + 1)];
+        const p2 = points[idx(r + 1, c + 1)];
+        const p3 = points[idx(r + 1, c)];
+
+        // Pick hue from position + time
+        const avgX = (p0.x + p1.x + p2.x + p3.x) / 4;
+        const avgY = (p0.y + p1.y + p2.y + p3.y) / 4;
+        const hue = (avgX / W * 60 + avgY / H * 40 + 180 + t * 0.15) % 360;
+        const hue2 = (hue + 20) % 360;
+
+        // Triangle 1: p0, p1, p2
+        ctx.fillStyle = `hsla(${hue}, 85%, 62%, 0.82)`;
+        ctx.beginPath();
+        ctx.moveTo(p0.x, p0.y);
+        ctx.lineTo(p1.x, p1.y);
+        ctx.lineTo(p2.x, p2.y);
+        ctx.closePath();
+        ctx.fill();
+
+        // Triangle 2: p0, p2, p3
+        ctx.fillStyle = `hsla(${hue2}, 85%, 58%, 0.82)`;
+        ctx.beginPath();
+        ctx.moveTo(p0.x, p0.y);
+        ctx.lineTo(p2.x, p2.y);
+        ctx.lineTo(p3.x, p3.y);
+        ctx.closePath();
+        ctx.fill();
+      }
+    }
+
+    // Subtle inner grid lines for depth
+    ctx.lineWidth = 0.5;
+    ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+    for (let r = 0; r < rows; r++) {
+      ctx.beginPath();
+      ctx.moveTo(points[idx(r, 0)].x, points[idx(r, 0)].y);
+      for (let c = 1; c < cols; c++) ctx.lineTo(points[idx(r, c)].x, points[idx(r, c)].y);
+      ctx.stroke();
+    }
+    for (let c = 0; c < cols; c++) {
+      ctx.beginPath();
+      ctx.moveTo(points[idx(0, c)].x, points[idx(0, c)].y);
+      for (let r = 1; r < rows; r++) ctx.lineTo(points[idx(r, c)].x, points[idx(r, c)].y);
+      ctx.stroke();
+    }
+
+    // Bright outer border
+    ctx.lineWidth = 2.5;
+    ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+    ctx.beginPath();
+    // Top edge
+    for (let c = 0; c < cols; c++) {
+      const p = points[idx(0, c)];
+      c === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y);
+    }
+    // Right edge
+    for (let r = 1; r < rows; r++) ctx.lineTo(points[idx(r, cols-1)].x, points[idx(r, cols-1)].y);
+    // Bottom edge
+    for (let c = cols - 2; c >= 0; c--) ctx.lineTo(points[idx(rows-1, c)].x, points[idx(rows-1, c)].y);
+    // Left edge
+    for (let r = rows - 2; r >= 1; r--) ctx.lineTo(points[idx(r, 0)].x, points[idx(r, 0)].y);
+    ctx.closePath();
+    ctx.stroke();
+
+  } else {
+    // Wireframe mode
+    ctx.lineWidth = 1;
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        if (c < cols - 1) {
+          const a = points[idx(r,c)], b = points[idx(r,c+1)];
+          ctx.strokeStyle = `hsla(${(a.x/W*120+t*0.2)%360}, 80%, 65%, 0.9)`;
+          ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+        }
+        if (r < rows - 1) {
+          const a = points[idx(r,c)], b = points[idx(r+1,c)];
+          ctx.strokeStyle = `hsla(${(a.y/H*120+t*0.2)%360}, 80%, 65%, 0.9)`;
+          ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+        }
+      }
+    }
+  }
+}
+
+function drawRope() {
+  const N = points._N || points.length;
+  // Draw thick rope
+  if (!cfg.wireframe) {
+    ctx.lineWidth = 8;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.beginPath();
+    ctx.moveTo(points[0].x, points[0].y);
+    for (let i = 1; i < N; i++) ctx.lineTo(points[i].x, points[i].y);
+    const grad = ctx.createLinearGradient(points[0].x, points[0].y, points[N-1].x, points[N-1].y);
+    const hue = (t * 0.3) % 360;
+    grad.addColorStop(0, `hsl(${hue}, 80%, 60%)`);
+    grad.addColorStop(1, `hsl(${(hue + 60) % 360}, 80%, 60%)`);
+    ctx.strokeStyle = grad;
+    ctx.stroke();
+    // Highlight
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+    ctx.stroke();
+  } else {
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(points[0].x, points[0].y);
+    for (let i = 1; i < N; i++) ctx.lineTo(points[i].x, points[i].y);
+    ctx.strokeStyle = `hsl(${(t * 0.5) % 360}, 80%, 65%)`;
+    ctx.stroke();
+  }
+}
+
+function drawNodes() {
+  for (const p of points) {
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.pinned ? 5 : 3, 0, Math.PI * 2);
+    ctx.fillStyle = p.pinned ? '#ff6a9b' : 'rgba(255,255,255,0.6)';
+    ctx.fill();
+  }
+  // Highlight drag target
+  if (!dragPoint) {
+    const np = nearestPoint(mouseX, mouseY, 30);
+    if (np) {
+      ctx.beginPath();
+      ctx.arc(np.x, np.y, 8, 0, Math.PI * 2);
+      ctx.strokeStyle = 'rgba(124,106,255,0.8)';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
+  }
+}
+
+function drawBackground() {
+  ctx.fillStyle = '#0a0a0f';
+  ctx.fillRect(0, 0, W, H);
+  // Subtle grid
+  ctx.strokeStyle = 'rgba(255,255,255,0.03)';
+  ctx.lineWidth = 1;
+  const gs = 60;
+  for (let x = 0; x < W; x += gs) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
+  for (let y = 0; y < H; y += gs) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
+}
+
+function draw() {
+  drawBackground();
+  const type = cfg.simType;
+  if (type === 'cloth') drawCloth();
+  else if (type === 'softball') drawBall();
+  else if (type === 'jelly') drawJelly();
+  else if (type === 'rope') drawRope();
+
+  if (cfg.showNodes) drawNodes();
+}
+
+// ─── LOOP ──────────────────────────────────────────────────────────────────────
+function loop() {
+  t += 0.5;
+  update();
+  draw();
+  requestAnimationFrame(loop);
+}
+loop();
+
+// ─── UI BINDINGS ───────────────────────────────────────────────────────────────
+function bindSlider(id, key, fmt) {
+  const el = document.getElementById(id);
+  const val = document.getElementById(id + '-val');
+  el.addEventListener('input', () => {
+    cfg[key] = parseFloat(el.value);
+    val.textContent = fmt ? fmt(cfg[key]) : cfg[key].toFixed(2);
+  });
+}
+
+bindSlider('softness', 'softness');
+bindSlider('gravity', 'gravity');
+bindSlider('damping', 'damping');
+bindSlider('wind', 'wind');
+bindSlider('iters', 'iters', v => Math.round(v));
+
+const showNodesEl = document.getElementById('show-nodes');
+const showNodesVal = document.getElementById('show-nodes-val');
+showNodesEl.addEventListener('input', () => {
+  cfg.showNodes = showNodesEl.value == 1;
+  showNodesVal.textContent = cfg.showNodes ? 'On' : 'Off';
+});
+
+const wireframeEl = document.getElementById('wireframe');
+const wireframeVal = document.getElementById('wireframe-val');
+wireframeEl.addEventListener('input', () => {
+  cfg.wireframe = wireframeEl.value == 1;
+  wireframeVal.textContent = cfg.wireframe ? 'On' : 'Off';
+});
+
+// Sim type buttons
+document.querySelectorAll('.sim-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.sim-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    cfg.simType = btn.dataset.sim;
+    initSim();
+  });
+});
+
+// Pin toggle
+const pinBtn = document.getElementById('pin-toggle');
+pinBtn.addEventListener('click', () => {
+  cfg.pinEdges = !cfg.pinEdges;
+  pinBtn.classList.toggle('active', cfg.pinEdges);
+  initSim();
+});
+pinBtn.classList.toggle('active', cfg.pinEdges);
+
+// Reset
+document.getElementById('reset-btn').addEventListener('click', () => initSim());
+
+// Shake
+document.getElementById('shake-btn').addEventListener('click', () => {
+  for (const p of points) {
+    if (!p.pinned) {
+      p.x += (Math.random() - 0.5) * 60;
+      p.y += (Math.random() - 0.5) * 60;
+    }
+  }
+});
+
+// Panel collapse
+const panel = document.getElementById('panel');
+const showBtn = document.getElementById('panel-show-btn');
+document.getElementById('collapse-btn').addEventListener('click', () => {
+  panel.classList.add('collapsed');
+  showBtn.style.display = 'block';
+});
+showBtn.addEventListener('click', () => {
+  panel.classList.remove('collapsed');
+  showBtn.style.display = 'none';
+});
+</script>
+</body>
+</html>
