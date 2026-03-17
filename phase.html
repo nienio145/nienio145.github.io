@@ -12,30 +12,99 @@
     --text-dim: #4a5a73; --text-bright: #eef2f8; --solid: #5b9cf6;
     --liquid: #2dd4bf; --gas: #fb923c; --r: 12px;
   }
-  *,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
-  body{background:var(--bg);color:var(--text);font-family:'Syne',sans-serif;min-height:100vh;padding:24px 20px 40px;}
-  body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(0,229,255,0.025)1px,transparent 1px),linear-gradient(90deg,rgba(0,229,255,0.025)1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0;}
-  .page{position:relative;z-index:1;max-width:1180px;margin:0 auto;}
-  header{text-align:center;margin-bottom:28px;}
-  .header-badge{display:inline-block;font-family:'Space Mono',monospace;font-size:0.6rem;letter-spacing:0.2em;text-transform:uppercase;color:var(--cyan);background:rgba(0,229,255,0.15);border:1px solid rgba(0,229,255,0.25);padding:4px 12px;border-radius:20px;margin-bottom:12px;}
-  h1{font-size:clamp(1.8rem,4vw,2.8rem);font-weight:800;letter-spacing:-0.03em;color:var(--text-bright);}
-  h1 em{font-style:normal;color:var(--cyan);}
-  .layout{display:grid;grid-template-columns:1fr 300px;gap:18px;}
-  .left{display:flex;flex-direction:column;gap:14px;}
-  .metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;}
-  .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:14px 15px 12px;position:relative;}
-  .card::after{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--cyan);}
-  .card.s::after{background:var(--solid);}.card.l::after{background:var(--liquid);}.card.g::after{background:var(--gas);}
-  .card-lbl{font-family:'Space Mono',monospace;font-size:0.58rem;letter-spacing:0.13em;text-transform:uppercase;color:var(--text-dim);margin-bottom:7px;}
-  .card-val{font-family:'Space Mono',monospace;font-size:1.5rem;font-weight:700;color:var(--text-bright);}
-  .card-val.sm{font-size:1.1rem;}
-  .sim-wrap{background:rgba(0,0,0,0.5);border:1px solid var(--border);border-radius:var(--r);padding:16px;}
-  canvas{display:block;border-radius:8px;border:1px solid var(--border);width:100%;}
-  .panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:20px;position:sticky;top:20px;}
-  .btn{padding:10px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-weight:700;cursor:pointer;transition:all .18s;}
-  .btn:hover{background:rgba(0,229,255,0.1);border-color:rgba(0,229,255,0.5);color:var(--cyan);}
-  .btn.active{background:rgba(0,229,255,0.15);border-color:rgba(0,229,255,0.6);color:var(--cyan);}
-  @media(max-width:860px){.layout{grid-template-columns:1fr;}}
+  *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    min-height: 100vh;
+    padding: 24px 20px 40px;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  body::before {
+    content: ''; position: fixed; inset: 0; z-index: 0;
+    background-image: linear-gradient(rgba(0,229,255,0.025) 1px, transparent 1px),
+                      linear-gradient(90deg, rgba(0,229,255,0.025) 1px, transparent 1px);
+    background-size: 48px 48px;
+    pointer-events: none;
+  }
+  .page {
+    position: relative;
+    z-index: 1;
+    max-width: 1180px;
+    margin: 0 auto;
+  }
+  header { text-align: center; margin-bottom: 28px; }
+  .header-badge {
+    display: inline-block; font-family: 'Space Mono', monospace; font-size: 0.6rem;
+    letter-spacing: 0.2em; text-transform: uppercase; color: var(--cyan);
+    background: rgba(0,229,255,0.15); border: 1px solid rgba(0,229,255,0.25);
+    padding: 4px 12px; border-radius: 20px; margin-bottom: 12px;
+  }
+  h1 { font-size: clamp(1.8rem, 4vw, 2.8rem); font-weight: 800; letter-spacing: -0.03em; color: var(--text-bright); }
+  h1 em { font-style: normal; color: var(--cyan); }
+
+  .layout {
+    display: grid;
+    grid-template-columns: 1fr 300px;
+    gap: 18px;
+    align-items: start;
+  }
+  .left { display: flex; flex-direction: column; gap: 14px; }
+
+  .metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+  .card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--r);
+    padding: 14px 15px 12px; position: relative;
+  }
+  .card::after { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: var(--cyan); }
+  .card.s::after { background: var(--solid); }
+  .card.l::after { background: var(--liquid); }
+  .card.g::after { background: var(--gas); }
+
+  .card-lbl { font-family: 'Space Mono', monospace; font-size: 0.58rem; letter-spacing: 0.13em; text-transform: uppercase; color: var(--text-dim); margin-bottom: 7px; }
+  .card-val { font-family: 'Space Mono', monospace; font-size: 1.5rem; font-weight: 700; color: var(--text-bright); }
+  .card-val.sm { font-size: 1.1rem; }
+
+  .sim-wrap {
+    background: rgba(0,0,0,0.5);
+    border: 1px solid var(--border);
+    border-radius: var(--r);
+    padding: 16px;
+    position: relative;
+  }
+  canvas {
+    display: block;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    width: 100%;
+    height: auto;
+    max-height: 420px;
+  }
+
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r);
+    padding: 20px;
+    position: sticky;
+    top: 20px;
+    align-self: start;
+  }
+
+  .btn {
+    padding: 10px; border-radius: 8px; border: 1px solid var(--border);
+    background: var(--surface2); color: var(--text); font-weight: 700;
+    cursor: pointer; transition: all .18s;
+  }
+  .btn:hover { background: rgba(0,229,255,0.1); border-color: rgba(0,229,255,0.5); color: var(--cyan); }
+  .btn.active { background: rgba(0,229,255,0.15); border-color: rgba(0,229,255,0.6); color: var(--cyan); }
+
+  @media (max-width: 860px) {
+    .layout { grid-template-columns: 1fr; }
+    .panel { position: static; }
+  }
 </style>
 </head>
 <body>
@@ -43,7 +112,7 @@
   <header>
     <div class="header-badge">Thermodynamics Lab</div>
     <h1>Molecular <em>Phase</em> Simulator</h1>
-    <p style="font-family:'Space Mono',monospace;font-size:0.65rem;color:#4a5a73;margin-top:8px;">Natural random crystalline freezing • Fully stable</p>
+    <p style="font-family:'Space Mono',monospace;font-size:0.65rem;color:#4a5a73;margin-top:8px;">Natural random crystalline freezing • Stable version</p>
   </header>
 
   <div class="layout">
@@ -54,10 +123,11 @@
         <div class="card" id="c-pres"><div class="card-lbl">Pressure</div><div class="card-val" id="m-pres">1.00</div><div class="card-unit">atm</div></div>
         <div class="card" id="c-phase"><div class="card-lbl">Phase</div><div class="card-val sm" id="m-phase">Liquid</div><div class="card-unit" id="m-mol-count">50 molecules</div></div>
       </div>
+
       <div class="sim-wrap">
         <div style="display:flex;justify-content:space-between;margin-bottom:10px;">
           <span style="font-family:'Space Mono',monospace;font-size:0.58rem;letter-spacing:0.13em;color:#4a5a73;">Simulation Container</span>
-          <span id="phase-pill" style="font-family:'Space Mono',monospace;font-size:0.65rem;font-weight:700;letter-spacing:0.1em;padding:3px 10px;border-radius:20px;background:rgba(45,212,191,0.18);color:#2dd4bf;border:1px solid rgba(45,212,191,0.35);">Liquid</span>
+          <span id="phase-pill" style="font-family:'Space Mono',monospace;font-size:0.65rem;font-weight:700;letter-spacing:0.1em;padding:3px 10px;border-radius:20px;">Liquid</span>
         </div>
         <canvas id="sim"></canvas>
       </div>
@@ -68,7 +138,7 @@
 
       <div style="margin-bottom:18px;">
         <div style="display:flex;justify-content:space-between;margin-bottom:8px;"><span style="font-size:0.82rem;font-weight:600;">Substance</span></div>
-        <select id="sel-substance" style="width:100%;background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:7px;color:var(--text);padding:9px 12px;font-size:0.82rem;">
+        <select id="sel-substance" style="width:100%;background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:7px;color:var(--text);padding:9px 12px;">
           <option value="water">Water (H₂O)</option>
           <option value="ethanol">Ethanol (C₂H₅OH)</option>
           <option value="co2">Carbon Dioxide (CO₂)</option>
@@ -89,10 +159,10 @@
 
       <div style="margin-top:14px;padding:10px 12px;background:rgba(255,255,255,0.06);border-radius:8px;border:1px solid var(--border);">
         <div style="font-family:'Space Mono',monospace;font-size:0.58rem;display:flex;justify-content:space-between;margin-bottom:7px;color:#4a5a73;">
-          <span>Avg Particle Speed</span><span id="speed-val">2.34 px/f</span>
+          <span>Avg Particle Speed</span><span id="speed-val">—</span>
         </div>
         <div style="height:4px;background:rgba(255,255,255,0.07);border-radius:2px;overflow:hidden;">
-          <div id="speed-bar" style="height:100%;width:35%;background:#2dd4bf;transition:width .15s,background .4s;"></div>
+          <div id="speed-bar" style="height:100%;width:20%;background:#00e5ff;transition:width .15s,background .4s;"></div>
         </div>
       </div>
 
@@ -105,6 +175,7 @@
 </div>
 
 <script>
+// ====================== CORE SIMULATION ======================
 const SUBS = {
   water:   { melt: 0,   boil: 100 },
   ethanol: { melt: -114, boil: 78.4 },
@@ -146,7 +217,6 @@ function initSimulation() {
     x: (Math.random()-0.5)*7, y: (Math.random()-0.5)*7,
     vx: (Math.random()-0.5)*0.35, vy: (Math.random()-0.5)*0.35
   }));
-
   particles = [];
   for (let i = 0; i < numMol; i++) {
     particles.push({
@@ -183,14 +253,10 @@ function getTempK() { return Math.max(1, temperature + 273.15); }
 function update() {
   if (paused) return;
 
-  // Safe sync when molecule count changes
   if (lattice.length !== numMol) {
     lattice = buildLattice(numMol);
-    latticeJitter = lattice.map(() => ({
-      x: (Math.random()-0.5)*7, y: (Math.random()-0.5)*7,
-      vx: (Math.random()-0.5)*0.35, vy: (Math.random()-0.5)*0.35
-    }));
-    particles.forEach((p, i) => p.latticeIdx = Math.min(i, lattice.length-1));
+    latticeJitter = lattice.map(() => ({x:(Math.random()-0.5)*7, y:(Math.random()-0.5)*7, vx:(Math.random()-0.5)*0.35, vy:(Math.random()-0.5)*0.35}));
+    particles.forEach((p,i) => p.latticeIdx = Math.min(i, lattice.length-1));
     while (particles.length < numMol) particles.push({x:CW/2, y:CH/2, vx:0, vy:0, latticeIdx:particles.length});
     while (particles.length > numMol) particles.pop();
   }
@@ -200,10 +266,8 @@ function update() {
   phaseBlend = phaseBlend * 0.982 + sf * 0.018;
   vaporBlend = vaporBlend * 0.965 + (1 - lf) * 0.035;
 
-  // Evolve jitter for natural crystals
   latticeJitter.forEach(j => {
-    j.vx += (Math.random()-0.5)*0.09;
-    j.vy += (Math.random()-0.5)*0.09;
+    j.vx += (Math.random()-0.5)*0.09; j.vy += (Math.random()-0.5)*0.09;
     j.vx *= 0.91; j.vy *= 0.91;
     j.x = Math.max(-9, Math.min(9, j.x + j.vx));
     j.y = Math.max(-9, Math.min(9, j.y + j.vy));
@@ -212,8 +276,7 @@ function update() {
   for (let p of particles) {
     const base = lattice[p.latticeIdx] || lattice[0];
     const jit = latticeJitter[p.latticeIdx] || latticeJitter[0];
-    const tx = base.x + jit.x;
-    const ty = base.y + jit.y;
+    const tx = base.x + jit.x, ty = base.y + jit.y;
 
     if (phaseBlend > 0.005) {
       const dx = tx - p.x, dy = ty - p.y;
@@ -224,63 +287,59 @@ function update() {
       fy = Math.max(-maxF, Math.min(maxF, fy));
       p.vx += fx; p.vy += fy;
 
-      const damp = Math.max(0.52, 0.87 - phaseBlend * 0.29);
+      const damp = Math.max(0.52, 0.87 - phaseBlend*0.29);
       p.vx *= damp; p.vy *= damp;
 
-      const jitStr = (1 - phaseBlend) * 1.15;
-      p.vx += (Math.random()-0.5) * jitStr;
-      p.vy += (Math.random()-0.5) * jitStr;
+      const jitStr = (1-phaseBlend)*1.15;
+      p.vx += (Math.random()-0.5)*jitStr;
+      p.vy += (Math.random()-0.5)*jitStr;
     }
 
     if (phaseBlend < 0.92) {
       const liq = 1 - vaporBlend;
-      p.vy += 0.19 * liq + ((phaseBlend > 0.02 && phaseBlend < 0.85) ? 0.25*(1-phaseBlend) : 0);
-      const d = 0.998 + vaporBlend * 0.002;
+      p.vy += 0.19*liq + ((phaseBlend>0.02 && phaseBlend<0.85)?0.25*(1-phaseBlend):0);
+      const d = 0.998 + vaporBlend*0.002;
       p.vx *= d; p.vy *= d;
       if (vaporBlend > 0.03) {
-        const gj = 6 * Math.sqrt(getTempK()/373) * 0.055 * vaporBlend;
+        const gj = 6*Math.sqrt(getTempK()/373)*0.055*vaporBlend;
         p.vx += (Math.random()-0.5)*gj;
         p.vy += (Math.random()-0.5)*gj;
       }
     }
   }
 
-  // Thermostat
   let mean = 0;
   for (let p of particles) mean += Math.hypot(p.vx, p.vy);
   mean /= particles.length || 1;
 
   const target = (phaseBlend > 0.75) ? 0.28 :
-    (2.2*Math.sqrt(getTempK()/298)*(1-vaporBlend) + 6*Math.sqrt(getTempK()/373)*vaporBlend) * (1 - phaseBlend*0.4);
+    (2.2*Math.sqrt(getTempK()/298)*(1-vaporBlend) + 6*Math.sqrt(getTempK()/373)*vaporBlend) * (1-phaseBlend*0.4);
 
   if (mean > 0.01) {
     const sc = Math.max(0.65, Math.min(1.9, 1 + (target/mean - 1)*0.04));
     for (let p of particles) { p.vx *= sc; p.vy *= sc; }
   }
 
-  // Move + walls
   for (let p of particles) {
     p.x += p.vx; p.y += p.vy;
     if (p.x < R) { p.x = R; p.vx = Math.abs(p.vx); }
-    if (p.x > CW - R) { p.x = CW - R; p.vx = -Math.abs(p.vx); }
+    if (p.x > CW-R) { p.x = CW-R; p.vx = -Math.abs(p.vx); }
     if (p.y < R) { p.y = R; p.vy = Math.abs(p.vy); }
-    if (p.y > CH - R) { p.y = CH - R; p.vy = -Math.abs(p.vy); }
+    if (p.y > CH-R) { p.y = CH-R; p.vy = -Math.abs(p.vy); }
   }
 
-  // Particle collisions (only when not mostly solid)
   if (phaseBlend < 0.92) {
     const len = particles.length;
     for (let i = 0; i < len; i++) {
-      for (let j = i + 1; j < len; j++) {
+      for (let j = i+1; j < len; j++) {
         const a = particles[i], b = particles[j];
-        const dx = b.x - a.x, dy = b.y - a.y;
-        const d2 = dx*dx + dy*dy;
+        const dx = b.x-a.x, dy = b.y-a.y, d2 = dx*dx+dy*dy;
         if (d2 < 4*R*R && d2 > 0) {
-          const d = Math.sqrt(d2), nx = dx/d, ny = dy/d;
+          const d = Math.sqrt(d2), nx=dx/d, ny=dy/d;
           const overlap = 2*R - d;
           a.x -= nx*overlap*0.5; a.y -= ny*overlap*0.5;
           b.x += nx*overlap*0.5; b.y += ny*overlap*0.5;
-          const dot = (a.vx - b.vx)*nx + (a.vy - b.vy)*ny;
+          const dot = (a.vx-b.vx)*nx + (a.vy-b.vy)*ny;
           if (dot > 0) {
             a.vx -= dot*nx; a.vy -= dot*ny;
             b.vx += dot*nx; b.vy += dot*ny;
@@ -293,8 +352,8 @@ function update() {
 
 function draw() {
   const phase = getPhase();
-  const col = phase === 'solid' ? '#5b9cf6' : phase === 'liquid' ? '#2dd4bf' : '#fb923c';
-  const gcolBase = phase === 'solid' ? 'rgba(91,156,246,' : phase === 'liquid' ? 'rgba(45,212,191,' : 'rgba(251,146,60,';
+  const col = phase==='solid'?'#5b9cf6':phase==='liquid'?'#2dd4bf':'#fb923c';
+  const gcol = phase==='solid'?'rgba(91,156,246,':phase==='liquid'?'rgba(45,212,191,':'rgba(251,146,60,';
 
   const grad = ctx.createLinearGradient(0,0,0,CH);
   grad.addColorStop(0, phase==='solid'?'#08101e':phase==='liquid'?'#06111a':'#141008');
@@ -303,40 +362,38 @@ function draw() {
   ctx.fillRect(0,0,CW,CH);
 
   ctx.strokeStyle = 'rgba(255,255,255,0.025)';
-  for (let x=48; x<CW; x+=48) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,CH); ctx.stroke(); }
-  for (let y=48; y<CH; y+=48) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(CW,y); ctx.stroke(); }
+  for (let x=48;x<CW;x+=48){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,CH);ctx.stroke();}
+  for (let y=48;y<CH;y+=48){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(CW,y);ctx.stroke();}
 
-  const alpha = Math.min(1, phaseBlend * 2.4);
+  const alpha = Math.min(1, phaseBlend*2.4);
   if (alpha > 0.02) {
     ctx.lineWidth = 1;
-    const len = particles.length;
-    for (let i = 0; i < len; i++) {
-      for (let j = i+1; j < len; j++) {
-        const a = particles[i], b = particles[j];
+    for (let i=0; i<particles.length; i++) {
+      for (let j=i+1; j<particles.length; j++) {
+        const a=particles[i], b=particles[j];
         const d2 = (b.x-a.x)**2 + (b.y-a.y)**2;
         if (d2 < (R*3.3)**2) {
           const d = Math.sqrt(d2);
-          const stretch = Math.abs(d - R*2.45) / (R*2.45);
+          const stretch = Math.abs(d - R*2.45)/(R*2.45);
           const ba = Math.max(0, 0.38 - stretch*0.7) * alpha;
           ctx.strokeStyle = `rgba(91,156,246,${ba})`;
-          ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.stroke();
         }
       }
     }
   }
 
   for (let p of particles) {
-    const gr = ctx.createRadialGradient(p.x, p.y, R*0.4, p.x, p.y, R*2.8);
-    gr.addColorStop(0, gcolBase + '0.35)');
-    gr.addColorStop(1, gcolBase + '0)');
+    const gr = ctx.createRadialGradient(p.x,p.y,R*0.4,p.x,p.y,R*2.8);
+    gr.addColorStop(0, gcol+'0.35)'); gr.addColorStop(1, gcol+'0)');
     ctx.fillStyle = gr;
-    ctx.beginPath(); ctx.arc(p.x, p.y, R*2.8, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(p.x,p.y,R*2.8,0,Math.PI*2); ctx.fill();
 
     ctx.fillStyle = col;
-    ctx.beginPath(); ctx.arc(p.x, p.y, R, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(p.x,p.y,R,0,Math.PI*2); ctx.fill();
 
     ctx.fillStyle = 'rgba(255,255,255,0.22)';
-    ctx.beginPath(); ctx.arc(p.x - R*0.3, p.y - R*0.32, R*0.32, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(p.x-R*0.3,p.y-R*0.32,R*0.32,0,Math.PI*2); ctx.fill();
   }
 }
 
@@ -344,32 +401,30 @@ function updateUI() {
   const phase = getPhase();
   document.getElementById('m-temp').textContent = temperature.toFixed(1);
   document.getElementById('m-tempk').textContent = getTempK().toFixed(0);
-  document.getElementById('m-pres').textContent = ((particles.length * getTempK()) / (50 * 298)).toFixed(2);
+  document.getElementById('m-pres').textContent = ((particles.length * getTempK()) / (50*298)).toFixed(2);
   document.getElementById('m-phase').textContent = phase.charAt(0).toUpperCase() + phase.slice(1);
   document.getElementById('m-mol-count').textContent = particles.length + ' molecules';
 
   const pill = document.getElementById('phase-pill');
-  pill.style.background = phase==='solid' ? 'rgba(91,156,246,0.18)' : phase==='liquid' ? 'rgba(45,212,191,0.18)' : 'rgba(251,146,60,0.18)';
-  pill.style.color = phase==='solid' ? '#5b9cf6' : phase==='liquid' ? '#2dd4bf' : '#fb923c';
-  pill.style.borderColor = phase==='solid' ? 'rgba(91,156,246,0.35)' : phase==='liquid' ? 'rgba(45,212,191,0.35)' : 'rgba(251,146,60,0.35)';
   pill.textContent = phase.charAt(0).toUpperCase() + phase.slice(1);
+  pill.style.background = phase==='solid'?'rgba(91,156,246,0.18)':phase==='liquid'?'rgba(45,212,191,0.18)':'rgba(251,146,60,0.18)';
+  pill.style.color = phase==='solid'?'#5b9cf6':phase==='liquid'?'#2dd4bf':'#fb923c';
+  pill.style.border = `1px solid ${phase==='solid'?'rgba(91,156,246,0.35)':phase==='liquid'?'rgba(45,212,191,0.35)':'rgba(251,146,60,0.35)'}`;
 
   let spd = 0;
   for (let p of particles) spd += Math.hypot(p.vx, p.vy);
   spd /= particles.length || 1;
-  const pct = Math.min(100, (spd / 9) * 100);
-  document.getElementById('speed-bar').style.width = pct + '%';
+  document.getElementById('speed-bar').style.width = Math.min(100, (spd/9)*100) + '%';
   document.getElementById('speed-bar').style.background = phase==='solid'?'#5b9cf6':phase==='liquid'?'#2dd4bf':'#fb923c';
   document.getElementById('speed-val').textContent = spd.toFixed(2) + ' px/f';
 }
 
 function updateSubInfo() {
   const s = SUBS[subKey];
-  document.getElementById('sub-info').innerHTML = 
-    `<b>Melts at:</b> ${s.melt} °C &nbsp;|&nbsp; <b>Boils at:</b> ${s.boil} °C`;
+  document.getElementById('sub-info').innerHTML = `<b>Melts at:</b> ${s.melt} °C &nbsp;|&nbsp; <b>Boils at:</b> ${s.boil} °C`;
 }
 
-// Event listeners
+// ====================== UI CONTROLS ======================
 document.getElementById('sl-temp').addEventListener('input', e => {
   temperature = +e.target.value;
   document.getElementById('lbl-temp').textContent = temperature + ' °C';
@@ -409,7 +464,7 @@ function loop() {
   requestAnimationFrame(loop);
 }
 
-// Initialize
+// Start the simulation
 updateSubInfo();
 initSimulation();
 loop();
