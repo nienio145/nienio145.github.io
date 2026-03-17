@@ -51,7 +51,6 @@
     margin: 0 auto;
   }
 
-  /* ── Header ── */
   header {
     text-align: center;
     margin-bottom: 28px;
@@ -79,10 +78,7 @@
     line-height: 1;
   }
 
-  h1 em {
-    font-style: normal;
-    color: var(--cyan);
-  }
+  h1 em { font-style: normal; color: var(--cyan); }
 
   .header-sub {
     font-family: 'Space Mono', monospace;
@@ -93,7 +89,6 @@
     margin-top: 8px;
   }
 
-  /* ── Layout ── */
   .layout {
     display: grid;
     grid-template-columns: 1fr 300px;
@@ -103,7 +98,6 @@
 
   .left { display: flex; flex-direction: column; gap: 14px; }
 
-  /* ── Metric cards ── */
   .metrics {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
@@ -153,7 +147,6 @@
   }
 
   .card-val.sm { font-size: 1.1rem; }
-
   .card-unit {
     font-family: 'Space Mono', monospace;
     font-size: 0.6rem;
@@ -161,7 +154,6 @@
     margin-top: 5px;
   }
 
-  /* ── Canvas wrapper ── */
   .sim-wrap {
     background: rgba(0,0,0,0.5);
     border: 1px solid var(--border);
@@ -208,7 +200,6 @@
     height: auto;
   }
 
-  /* ── Panel ── */
   .panel {
     background: var(--surface);
     border: 1px solid var(--border);
@@ -238,11 +229,7 @@
     margin-bottom: 8px;
   }
 
-  .ctrl-name {
-    font-size: 0.82rem;
-    font-weight: 600;
-    color: var(--text);
-  }
+  .ctrl-name { font-size: 0.82rem; font-weight: 600; color: var(--text); }
 
   .ctrl-val {
     font-family: 'Space Mono', monospace;
@@ -315,11 +302,7 @@
 
   .substance-info b { color: var(--cyan); font-weight: 700; }
 
-  /* Temperature track gradient */
-  .temp-track {
-    position: relative;
-    margin-top: 2px;
-  }
+  .temp-track { position: relative; margin-top: 2px; }
 
   .temp-track input[type=range] {
     background: linear-gradient(to right,
@@ -328,7 +311,6 @@
       rgba(251,146,60,0.4) 100%);
   }
 
-  /* Buttons */
   .btn-row {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -364,14 +346,8 @@
     color: var(--cyan);
   }
 
-  /* Divider */
-  .divider {
-    height: 1px;
-    background: var(--border);
-    margin: 16px 0;
-  }
+  .divider { height: 1px; background: var(--border); margin: 16px 0; }
 
-  /* Speed viz */
   .speed-bar-wrap {
     margin-top: 14px;
     padding: 10px 12px;
@@ -406,7 +382,6 @@
     max-width: 100%;
   }
 
-  /* Responsive */
   @media (max-width: 860px) {
     .layout { grid-template-columns: 1fr; }
     .panel { position: static; }
@@ -432,7 +407,6 @@
 
   <div class="layout">
     <div class="left">
-
       <div class="metrics">
         <div class="card" id="c-temp">
           <div class="card-lbl">Temperature</div>
@@ -463,10 +437,8 @@
         </div>
         <canvas id="sim"></canvas>
       </div>
-
     </div>
 
-    <!-- Controls panel -->
     <div class="panel">
       <div class="panel-title">⚗ Simulation Controls</div>
 
@@ -523,9 +495,6 @@
 </div>
 
 <script>
-// ══════════════════════════════════════════════
-//  SUBSTANCES
-// ══════════════════════════════════════════════
 const SUBS = {
   water:   { name: 'Water (H₂O)',          melt: 0,     boil: 100,   specificHeat: 4.18 },
   ethanol: { name: 'Ethanol (C₂H₅OH)',     melt: -114,  boil: 78.4,  specificHeat: 2.44 },
@@ -533,31 +502,51 @@ const SUBS = {
   iron:    { name: 'Iron (Fe)',             melt: 1538,  boil: 2862,  specificHeat: 0.45 },
 };
 
-// ══════════════════════════════════════════════
-//  CANVAS SETUP
-// ══════════════════════════════════════════════
+const TRANS_MELT_WIDTH = 22;
+const TRANS_BOIL_WIDTH = 14;
+
 const canvas = document.getElementById('sim');
 const ctx    = canvas.getContext('2d');
-
-const CW = 640;   // logical simulation width
-const CH = 400;   // logical simulation height
+const CW = 640;
+const CH = 400;
 canvas.width  = CW;
 canvas.height = CH;
 
-// ══════════════════════════════════════════════
-//  STATE
-// ══════════════════════════════════════════════
-const R = 9;          // particle radius px
+const R = 9;
 
 let particles   = [];
-let temperature = 25; // °C
+let lattice     = [];
+let temperature = 25;
 let numMol      = 50;
 let subKey      = 'water';
 let paused      = false;
+let lastPhase   = '';
+let phaseBlend  = 0;   // 0 = fully liquid/gas, 1 = fully solid
+let vaporBlend  = 0;
 
-// ══════════════════════════════════════════════
-//  HELPERS
-// ══════════════════════════════════════════════
+// ── Build triangular lattice ──
+function buildLattice(n) {
+  const pts = [];
+  const spacing = R * 2.4;
+  const rowH    = spacing * Math.sqrt(3) / 2;
+  const padX = 32, padY = 28;
+  const cols = Math.floor((CW - padX * 2) / spacing) + 1;
+
+  let row = 0, col = 0;
+  for (let i = 0; i < n; i++) {
+    const offset = (row % 2 === 0) ? 0 : spacing / 2;
+    const x = padX + offset + col * spacing;
+    const y = CH - padY - row * rowH;
+    pts.push({ x, y });
+    col++;
+    if (col >= cols || padX + offset + col * spacing + R > CW - padX) {
+      col = 0;
+      row++;
+    }
+  }
+  return pts;
+}
+
 function getPhase() {
   const s = SUBS[subKey];
   if (temperature < s.melt) return 'solid';
@@ -565,32 +554,28 @@ function getPhase() {
   return 'gas';
 }
 
-function getTempK() {
-  return Math.max(1, temperature + 273.15);
+function getSolidFactor() {
+  const s = SUBS[subKey];
+  const halfW = TRANS_MELT_WIDTH / 2;
+  const val = (s.melt + halfW - temperature) / TRANS_MELT_WIDTH;
+  return Math.max(0, Math.min(1, val));
 }
+
+function getLiquidFactor() {
+  const s = SUBS[subKey];
+  const halfW = TRANS_BOIL_WIDTH / 2;
+  const val = (s.boil + halfW - temperature) / TRANS_BOIL_WIDTH;
+  return Math.max(0, Math.min(1, val));
+}
+
+function getTempK() { return Math.max(1, temperature + 273.15); }
 
 function getTargetSpeed(phase) {
   const T = getTempK();
   switch (phase) {
-    case 'solid':  return 0.35;
-    case 'liquid': return 2.2  * Math.sqrt(T / 298);
-    case 'gas':    return 6.0  * Math.sqrt(T / 373);
-  }
-}
-
-function getGravity(phase) {
-  switch (phase) {
-    case 'solid':  return 0.55;
-    case 'liquid': return 0.18;
-    case 'gas':    return 0;
-  }
-}
-
-function getDamping(phase) {
-  switch (phase) {
-    case 'solid':  return 0.82;
-    case 'liquid': return 0.999;
-    case 'gas':    return 1.0;
+    case 'solid':  return 0.28;
+    case 'liquid': return 2.2 * Math.sqrt(T / 298);
+    case 'gas':    return 6.0 * Math.sqrt(T / 373);
   }
 }
 
@@ -611,84 +596,131 @@ function getGlowColor(phase) {
 }
 
 function calcPressure() {
-  // Ideal gas law, normalised: P=1 atm at N=50, T=298K
   const T = getTempK();
   return (particles.length * T) / (50 * 298);
 }
 
-// ══════════════════════════════════════════════
-//  PARTICLE INIT
-// ══════════════════════════════════════════════
-function makeParticle() {
+function makeParticle(i) {
   const angle = Math.random() * Math.PI * 2;
   const speed = 2;
   return {
-    x:  R + Math.random() * (CW - 2 * R),
-    y:  R + Math.random() * (CH * 0.5),
+    x: R + Math.random() * (CW - 2 * R),
+    y: R + Math.random() * (CH * 0.5),
     vx: Math.cos(angle) * speed,
     vy: Math.sin(angle) * speed,
+    latticeIdx: i,
   };
 }
 
 function initParticles() {
+  lattice = buildLattice(numMol);
   particles = [];
-  for (let i = 0; i < numMol; i++) particles.push(makeParticle());
+  for (let i = 0; i < numMol; i++) particles.push(makeParticle(i));
 }
 
-// ══════════════════════════════════════════════
-//  PHYSICS UPDATE
-// ══════════════════════════════════════════════
+function syncLattice() {
+  if (lattice.length !== particles.length) {
+    lattice = buildLattice(particles.length);
+    particles.forEach((p, i) => p.latticeIdx = i);
+  }
+}
+
 function update() {
   if (paused) return;
+  syncLattice();
 
-  const phase   = getPhase();
-  const gravity = getGravity(phase);
-  const damping = getDamping(phase);
-  const target  = getTargetSpeed(phase);
+  const sf = getSolidFactor();
+  const lf = getLiquidFactor();
+  const vaporTarget = 1 - lf;
 
-  // ── Apply gravity & damping ──
-  for (const p of particles) {
-    p.vy += gravity;
-    p.vx *= damping;
-    p.vy *= damping;
+  // Slower blend for ultra-smooth freezing (takes ~2–3 seconds to fully solidify)
+  phaseBlend += (sf - phaseBlend) * 0.018;
+  vaporBlend += (vaporTarget - vaporBlend) * 0.035;
+
+  // ── Per-particle forces with gentle freezing physics ──
+  for (let i = 0; i < particles.length; i++) {
+    const p = particles[i];
+    const lp = lattice[p.latticeIdx] || lattice[i];
+
+    // === FREEZING / SOLID LATTICE (very gentle pull + settling) ===
+    if (phaseBlend > 0.005) {
+      const dx = lp.x - p.x;
+      const dy = lp.y - p.y;
+
+      // Stiffness starts at ZERO and ramps slowly → no violent snap
+      const stiffness = phaseBlend * phaseBlend * 0.22;   // quadratic = extra gentle at start
+      let fx = dx * stiffness;
+      let fy = dy * stiffness;
+
+      // CRITICAL: cap the force so particles drift slowly instead of jumping
+      const maxPull = 2.6 * Math.sqrt(phaseBlend);   // starts tiny, grows gradually
+      fx = Math.max(-maxPull, Math.min(maxPull, fx));
+      fy = Math.max(-maxPull, Math.min(maxPull, fy));
+
+      p.vx += fx;
+      p.vy += fy;
+
+      // Damping increases as we freeze (prevents wild oscillation)
+      const damp = 0.89 - phaseBlend * 0.31;
+      p.vx *= Math.max(0.55, damp);
+      p.vy *= Math.max(0.55, damp);
+
+      // Thermal jitter fades out smoothly
+      const jit = (1 - phaseBlend) * 1.05;
+      p.vx += (Math.random() - 0.5) * jit;
+      p.vy += (Math.random() - 0.5) * jit;
+    }
+
+    // === LIQUID SETTLING + GAS JITTER (still active during transition) ===
+    if (phaseBlend < 0.92) {
+      const liqScale = 1 - vaporBlend;
+
+      // Stronger downward settling while freezing (makes them "come down together")
+      const extraSettle = (phaseBlend > 0.02 && phaseBlend < 0.85) ? 0.22 * (1 - phaseBlend) : 0;
+      p.vy += (0.18 * liqScale) + extraSettle;
+
+      const dampVal = 0.998 + 0.002 * vaporBlend;
+      p.vx *= dampVal;
+      p.vy *= dampVal;
+
+      if (vaporBlend > 0.03) {
+        const gasJit = 6.0 * Math.sqrt(getTempK() / 373) * 0.055 * vaporBlend;
+        p.vx += (Math.random() - 0.5) * gasJit;
+        p.vy += (Math.random() - 0.5) * gasJit;
+      }
+    }
   }
 
-  // ── Thermostat: gently rescale mean speed toward target ──
+  // ── Thermostat (smooth across all phases) ──
   let meanSpd = 0;
   for (const p of particles) meanSpd += Math.hypot(p.vx, p.vy);
   meanSpd /= particles.length || 1;
 
-  if (meanSpd > 0.01) {
-    const ratio = target / meanSpd;
-    // gentle blend toward target, clamped so we don't explode
-    const scale = 1 + (ratio - 1) * 0.04;
-    const sc    = Math.max(0.6, Math.min(2.0, scale));
+  const solidTarget = 0.28;
+  const liqTarget = 2.2 * Math.sqrt(getTempK() / 298);
+  const gasTarget = 6.0 * Math.sqrt(getTempK() / 373);
+  const effTarget = (phaseBlend > 0.75) ? solidTarget :
+                    (liqTarget * (1 - vaporBlend) + gasTarget * vaporBlend) * (1 - phaseBlend * 0.4);
+
+  if (meanSpd > 0.01 && phaseBlend < 0.95) {
+    const ratio = effTarget / meanSpd;
+    const scale = 1 + (ratio - 1) * 0.035;
+    const sc = Math.max(0.62, Math.min(1.95, scale));
     for (const p of particles) { p.vx *= sc; p.vy *= sc; }
-  } else if (phase !== 'solid') {
-    // kick stationary particles
+  } else if (meanSpd < 0.01 && phaseBlend < 0.95) {
     for (const p of particles) {
       const a = Math.random() * Math.PI * 2;
-      p.vx += Math.cos(a) * target * 0.5;
-      p.vy += Math.sin(a) * target * 0.5;
+      p.vx += Math.cos(a) * effTarget * 0.45;
+      p.vy += Math.sin(a) * effTarget * 0.45;
     }
   }
 
-  // ── Gas thermal jitter ──
-  if (phase === 'gas') {
-    const jitter = target * 0.06;
-    for (const p of particles) {
-      p.vx += (Math.random() - 0.5) * jitter;
-      p.vy += (Math.random() - 0.5) * jitter;
-    }
-  }
-
-  // ── Move ──
+  // ── Move & collisions (same as before) ──
   for (const p of particles) {
     p.x += p.vx;
     p.y += p.vy;
   }
 
-  // ── Wall collisions ──
   for (const p of particles) {
     if (p.x - R < 0)  { p.x = R;      p.vx =  Math.abs(p.vx); }
     if (p.x + R > CW) { p.x = CW - R; p.vx = -Math.abs(p.vx); }
@@ -696,47 +728,72 @@ function update() {
     if (p.y + R > CH) { p.y = CH - R; p.vy = -Math.abs(p.vy); }
   }
 
-  // ── Particle–particle elastic collisions ──
-  const len = particles.length;
-  for (let i = 0; i < len; i++) {
-    for (let j = i + 1; j < len; j++) {
-      const a = particles[i], b = particles[j];
-      const dx = b.x - a.x, dy = b.y - a.y;
-      const distSq = dx * dx + dy * dy;
-      const minD   = 2 * R;
-
-      if (distSq < minD * minD && distSq > 0) {
-        const dist = Math.sqrt(distSq);
-        const nx   = dx / dist, ny = dy / dist;
-        const overlap = minD - dist;
-
-        // Separate
-        a.x -= nx * overlap * 0.5;
-        a.y -= ny * overlap * 0.5;
-        b.x += nx * overlap * 0.5;
-        b.y += ny * overlap * 0.5;
-
-        // Exchange velocity along normal (elastic, equal mass)
-        const dvx = a.vx - b.vx, dvy = a.vy - b.vy;
-        const dot  = dvx * nx + dvy * ny;
-        if (dot > 0) {
-          a.vx -= dot * nx; a.vy -= dot * ny;
-          b.vx += dot * nx; b.vy += dot * ny;
+  if (phaseBlend < 0.92) {
+    const len = particles.length;
+    for (let i = 0; i < len; i++) {
+      for (let j = i + 1; j < len; j++) {
+        const a = particles[i], b = particles[j];
+        const dx = b.x - a.x, dy = b.y - a.y;
+        const distSq = dx * dx + dy * dy;
+        const minD = 2 * R;
+        if (distSq < minD * minD && distSq > 0) {
+          const dist = Math.sqrt(distSq);
+          const nx = dx / dist, ny = dy / dist;
+          const overlap = minD - dist;
+          a.x -= nx * overlap * 0.5;
+          a.y -= ny * overlap * 0.5;
+          b.x += nx * overlap * 0.5;
+          b.y += ny * overlap * 0.5;
+          const dvx = a.vx - b.vx, dvy = a.vy - b.vy;
+          const dot = dvx * nx + dvy * ny;
+          if (dot > 0) {
+            a.vx -= dot * nx; a.vy -= dot * ny;
+            b.vx += dot * nx; b.vy += dot * ny;
+          }
         }
       }
     }
   }
 }
 
-// ══════════════════════════════════════════════
-//  RENDER
-// ══════════════════════════════════════════════
+// ── Draw (unchanged — lattice bonds still fade naturally) ──
+function drawLattice() {
+  const bondDist = R * 2.7;
+  const bondDistSq = bondDist * bondDist;
+  const alpha = Math.min(1, phaseBlend * 2.2);
+  if (alpha < 0.02) return;
+
+  ctx.save();
+  ctx.strokeStyle = `rgba(91,156,246,${0.28 * alpha})`;
+  ctx.lineWidth = 1;
+
+  const len = particles.length;
+  for (let i = 0; i < len; i++) {
+    const a = particles[i];
+    for (let j = i + 1; j < len; j++) {
+      const b = particles[j];
+      const dSq = (b.x - a.x)**2 + (b.y - a.y)**2;
+      if (dSq < bondDistSq) {
+        const dist = Math.sqrt(dSq);
+        const ideal = R * 2.4;
+        const stretch = Math.abs(dist - ideal) / ideal;
+        const bondAlpha = Math.max(0, (0.32 - stretch * 0.5)) * alpha;
+        ctx.strokeStyle = `rgba(91,156,246,${bondAlpha})`;
+        ctx.beginPath();
+        ctx.moveTo(a.x, a.y);
+        ctx.lineTo(b.x, b.y);
+        ctx.stroke();
+      }
+    }
+  }
+  ctx.restore();
+}
+
 function draw() {
   const phase = getPhase();
   const col   = getColor(phase);
   const gcol  = getGlowColor(phase);
 
-  // Background gradient based on phase
   let bgGrad;
   if (phase === 'solid') {
     bgGrad = ctx.createLinearGradient(0, 0, 0, CH);
@@ -754,17 +811,11 @@ function draw() {
   ctx.fillStyle = bgGrad;
   ctx.fillRect(0, 0, CW, CH);
 
-  // Subtle grid
   ctx.strokeStyle = 'rgba(255,255,255,0.025)';
   ctx.lineWidth = 1;
-  for (let x = 48; x < CW; x += 48) {
-    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, CH); ctx.stroke();
-  }
-  for (let y = 48; y < CH; y += 48) {
-    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(CW, y); ctx.stroke();
-  }
+  for (let x = 48; x < CW; x += 48) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, CH); ctx.stroke(); }
+  for (let y = 48; y < CH; y += 48) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(CW, y); ctx.stroke(); }
 
-  // Phase atmospheric glow at bottom (solid/liquid)
   if (phase !== 'gas') {
     const atmos = ctx.createLinearGradient(0, CH * 0.6, 0, CH);
     if (phase === 'solid')  { atmos.addColorStop(0, 'rgba(91,156,246,0)');  atmos.addColorStop(1, 'rgba(91,156,246,0.06)'); }
@@ -773,31 +824,23 @@ function draw() {
     ctx.fillRect(0, 0, CW, CH);
   }
 
-  // Draw each particle
+  drawLattice();
+
   for (const p of particles) {
-    // Outer glow halo
     const grd = ctx.createRadialGradient(p.x, p.y, R * 0.4, p.x, p.y, R * 2.8);
     grd.addColorStop(0, gcol + '0.35)');
     grd.addColorStop(1, gcol + '0)');
     ctx.fillStyle = grd;
-    ctx.beginPath();
-    ctx.arc(p.x, p.y, R * 2.8, 0, Math.PI * 2);
-    ctx.fill();
+    ctx.beginPath(); ctx.arc(p.x, p.y, R * 2.8, 0, Math.PI * 2); ctx.fill();
 
-    // Particle body
     const bodyGrd = ctx.createRadialGradient(p.x - R * 0.28, p.y - R * 0.28, 0, p.x, p.y, R);
     bodyGrd.addColorStop(0, lightenColor(col, 40));
     bodyGrd.addColorStop(1, col);
     ctx.fillStyle = bodyGrd;
-    ctx.beginPath();
-    ctx.arc(p.x, p.y, R, 0, Math.PI * 2);
-    ctx.fill();
+    ctx.beginPath(); ctx.arc(p.x, p.y, R, 0, Math.PI * 2); ctx.fill();
 
-    // Specular highlight
     ctx.fillStyle = 'rgba(255,255,255,0.22)';
-    ctx.beginPath();
-    ctx.arc(p.x - R * 0.3, p.y - R * 0.32, R * 0.32, 0, Math.PI * 2);
-    ctx.fill();
+    ctx.beginPath(); ctx.arc(p.x - R * 0.3, p.y - R * 0.32, R * 0.32, 0, Math.PI * 2); ctx.fill();
   }
 }
 
@@ -808,17 +851,12 @@ function lightenColor(hex, amt) {
   return `rgb(${Math.min(255,r+amt)},${Math.min(255,g+amt)},${Math.min(255,b+amt)})`;
 }
 
-// ══════════════════════════════════════════════
-//  UI UPDATE
-// ══════════════════════════════════════════════
-let lastPhase = '';
-
 function updateUI() {
   const phase = getPhase();
-  const T     = temperature;
-  const Tk    = getTempK();
-  const P     = calcPressure();
-  const n     = particles.length;
+  const T = temperature;
+  const Tk = getTempK();
+  const P = calcPressure();
+  const n = particles.length;
 
   document.getElementById('m-temp').textContent  = T.toFixed(1);
   document.getElementById('m-tempk').textContent = Tk.toFixed(0);
@@ -826,35 +864,27 @@ function updateUI() {
   document.getElementById('m-phase').textContent = phase.charAt(0).toUpperCase() + phase.slice(1);
   document.getElementById('m-mol-count').textContent = n + ' molecules';
 
-  // Phase-color metrics
   const phaseCard = document.getElementById('c-phase');
   phaseCard.className = 'card ' + phase.charAt(0);
 
-  // Phase pill
   const pill = document.getElementById('phase-pill');
   pill.className = 'phase-pill ' + phase;
   pill.textContent = phase.charAt(0).toUpperCase() + phase.slice(1);
 
-  // Speed bar
   let meanSpd = 0;
   for (const p of particles) meanSpd += Math.hypot(p.vx, p.vy);
   meanSpd /= particles.length || 1;
 
   const maxSpd = getTargetSpeed('gas') * 1.5;
-  const pct    = Math.min(100, (meanSpd / maxSpd) * 100);
-  document.getElementById('speed-bar').style.width      = pct + '%';
+  const pct = Math.min(100, (meanSpd / maxSpd) * 100);
+  document.getElementById('speed-bar').style.width = pct + '%';
   document.getElementById('speed-bar').style.background = getColor(phase);
-  document.getElementById('speed-val').textContent       = meanSpd.toFixed(2) + ' px/f';
+  document.getElementById('speed-val').textContent = meanSpd.toFixed(2) + ' px/f';
 
-  // Flash on phase change
   if (phase !== lastPhase) {
     lastPhase = phase;
-    document.getElementById('phase-pill').style.boxShadow =
-      '0 0 14px ' + getColor(phase) + '88';
-    setTimeout(() => {
-      const el = document.getElementById('phase-pill');
-      if (el) el.style.boxShadow = '';
-    }, 800);
+    document.getElementById('phase-pill').style.boxShadow = '0 0 14px ' + getColor(phase) + '88';
+    setTimeout(() => { const el = document.getElementById('phase-pill'); if (el) el.style.boxShadow = ''; }, 800);
   }
 }
 
@@ -865,9 +895,6 @@ function updateSubInfo() {
     `<b>Specific heat:</b> ${s.specificHeat} J/(g·K)`;
 }
 
-// ══════════════════════════════════════════════
-//  EVENT LISTENERS
-// ══════════════════════════════════════════════
 document.getElementById('sl-temp').addEventListener('input', function () {
   temperature = +this.value;
   document.getElementById('lbl-temp').textContent = temperature + ' °C';
@@ -876,8 +903,11 @@ document.getElementById('sl-temp').addEventListener('input', function () {
 document.getElementById('sl-mol').addEventListener('input', function () {
   numMol = +this.value;
   document.getElementById('lbl-mol').textContent = numMol;
-  while (particles.length < numMol) particles.push(makeParticle());
+  const newLattice = buildLattice(numMol);
+  while (particles.length < numMol) particles.push(makeParticle(particles.length));
   while (particles.length > numMol) particles.pop();
+  lattice = newLattice;
+  particles.forEach((p, i) => p.latticeIdx = i);
 });
 
 document.getElementById('sel-substance').addEventListener('change', function () {
@@ -893,20 +923,19 @@ document.getElementById('btn-pause').addEventListener('click', function () {
 
 document.getElementById('btn-reset').addEventListener('click', function () {
   temperature = 25;
-  numMol      = 50;
-  paused      = false;
+  numMol = 50;
+  paused = false;
+  phaseBlend = 0;
+  vaporBlend = 0;
   document.getElementById('sl-temp').value = 25;
-  document.getElementById('sl-mol').value  = 50;
+  document.getElementById('sl-mol').value = 50;
   document.getElementById('lbl-temp').textContent = '25 °C';
-  document.getElementById('lbl-mol').textContent  = '50';
+  document.getElementById('lbl-mol').textContent = '50';
   document.getElementById('btn-pause').textContent = '⏸ Pause';
   document.getElementById('btn-pause').classList.remove('active');
   initParticles();
 });
 
-// ══════════════════════════════════════════════
-//  MAIN LOOP
-// ══════════════════════════════════════════════
 function loop() {
   update();
   draw();
@@ -914,7 +943,6 @@ function loop() {
   requestAnimationFrame(loop);
 }
 
-// ── Boot ──
 updateSubInfo();
 initParticles();
 loop();
