@@ -77,6 +77,15 @@
     line-height: 1;
   }
   .reset-btn:hover { background: rgba(0,229,255,0.12); border-color: rgba(0,229,255,0.4); color: var(--cyan); }
+  .phase-btns { display: grid; grid-template-columns: repeat(3,1fr); gap: 5px; margin-top: 6px; }
+  .phase-btn {
+    padding: 5px 3px; border-radius: 6px; border: 1px solid var(--border);
+    background: rgba(255,255,255,0.03); color: var(--text-dim);
+    font-family: 'Space Mono', monospace; font-size: 0.58rem; font-weight: 700;
+    cursor: pointer; transition: all .15s; text-align: center; line-height: 1.3;
+  }
+  .phase-btn:hover { border-color: rgba(0,229,255,0.4); color: var(--cyan); background: rgba(0,229,255,0.08); }
+  .phase-btn span { display: block; font-size: 0.5rem; font-weight: 400; color: var(--text-dim); margin-top: 1px; }
   .btn {
     padding: 10px; border-radius: 8px; border: 1px solid var(--border);
     background: var(--surface2); color: var(--text); font-weight: 700;
@@ -155,6 +164,11 @@
           <input type="range" id="sl-temp" min="-280" max="6000" value="25" step="1">
           <button class="reset-btn" id="rst-temp" title="Reset temperature to 25°C">↺</button>
         </div>
+        <div class="phase-btns">
+          <button class="phase-btn" id="pb-freeze">❄ Freeze<span id="pb-freeze-lbl">—</span></button>
+          <button class="phase-btn" id="pb-melt">💧 Melt<span id="pb-melt-lbl">—</span></button>
+          <button class="phase-btn" id="pb-boil">♨ Boil<span id="pb-boil-lbl">—</span></button>
+        </div>
       </div>
 
       <!-- Pressure -->
@@ -181,6 +195,18 @@
           <button class="reset-btn" id="rst-vol" title="Reset volume to 100%">↺</button>
         </div>
         <div style="font-family:'Space Mono',monospace;font-size:0.55rem;color:var(--text-dim);margin-top:4px;">Piston compresses from top</div>
+      </div>
+
+      <!-- Molecule count -->
+      <div style="margin-bottom:12px;">
+        <div class="ctrl-row">
+          <span class="ctrl-label">Molecules</span>
+          <span class="ctrl-val" id="lbl-mol">60</span>
+        </div>
+        <div class="slider-row">
+          <input type="range" id="sl-mol" min="10" max="120" value="60" step="5">
+          <button class="reset-btn" id="rst-mol" title="Reset to 60 molecules">↺</button>
+        </div>
       </div>
 
       <label style="display:flex;align-items:center;gap:8px;margin:8px 0 4px;font-size:0.82rem;cursor:pointer;">
@@ -226,6 +252,7 @@ const SUBS = {
 const DEFAULT_TEMP = 25;
 const DEFAULT_PRES = 1.0;
 const DEFAULT_VOL  = 100;
+const DEFAULT_MOL  = 60;
 
 // ═══════════════════════════════════════════
 // CANVAS
@@ -683,6 +710,7 @@ function updateUI() {
     `Critical T: ${s.critT}°C<br>`+
     `Critical P: ${s.critP} atm<br>`+
     `<span style="color:#4a5a73;font-size:0.58rem">${s.note}</span>`;
+  updatePhaseButtons();
 }
 
 // ═══════════════════════════════════════════
@@ -707,6 +735,25 @@ function applyVol(val) {
   particles.forEach((p,i) => p.latticeIdx = Math.min(i, lattice.length-1));
   initFrostCrystals();
 }
+function applyMol(val) {
+  numMol = val;
+  document.getElementById('sl-mol').value = val;
+  document.getElementById('lbl-mol').textContent = val;
+  initSimulation();
+}
+
+// Update phase shortcut button labels to show the actual temp they'll jump to
+function updatePhaseButtons() {
+  const s = SUBS[subKey];
+  const boil = getBoilPoint();
+  // Freeze = 10° below melt point; Melt = melt point; Boil = boiling point at current pressure
+  const freezeT = Math.round(s.melt - 10);
+  const meltT   = Math.round(s.melt);
+  const boilT   = Math.round(boil);
+  document.getElementById('pb-freeze-lbl').textContent = freezeT + '°C';
+  document.getElementById('pb-melt-lbl').textContent   = meltT   + '°C';
+  document.getElementById('pb-boil-lbl').textContent   = boilT   + '°C';
+}
 
 // ═══════════════════════════════════════════
 // CONTROLS
@@ -714,11 +761,25 @@ function applyVol(val) {
 document.getElementById('sl-temp').addEventListener('input', e => applyTemp(+e.target.value));
 document.getElementById('sl-pres').addEventListener('input', e => applyPres(+e.target.value));
 document.getElementById('sl-vol').addEventListener('input',  e => applyVol(+e.target.value));
+document.getElementById('sl-mol').addEventListener('input',  e => applyMol(+e.target.value));
 
 // Per-slider reset buttons
 document.getElementById('rst-temp').addEventListener('click', () => applyTemp(DEFAULT_TEMP));
 document.getElementById('rst-pres').addEventListener('click', () => applyPres(DEFAULT_PRES));
 document.getElementById('rst-vol').addEventListener('click',  () => applyVol(DEFAULT_VOL));
+document.getElementById('rst-mol').addEventListener('click',  () => applyMol(DEFAULT_MOL));
+
+// Phase shortcut buttons — jump to freeze/melt/boil temperature
+document.getElementById('pb-freeze').addEventListener('click', () => {
+  const t = Math.round(SUBS[subKey].melt - 10);
+  applyTemp(Math.max(-280, t));
+});
+document.getElementById('pb-melt').addEventListener('click', () => {
+  applyTemp(Math.round(SUBS[subKey].melt));
+});
+document.getElementById('pb-boil').addEventListener('click', () => {
+  applyTemp(Math.min(6000, Math.round(getBoilPoint())));
+});
 
 document.getElementById('couple-pvt').addEventListener('change', function(){
   couplePVT = this.checked;
@@ -742,6 +803,7 @@ document.getElementById('btn-reset').addEventListener('click', () => {
   applyTemp(DEFAULT_TEMP);
   applyPres(DEFAULT_PRES);
   applyVol(DEFAULT_VOL);
+  applyMol(DEFAULT_MOL);
   initSimulation();
 });
 
